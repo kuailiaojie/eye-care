@@ -18,6 +18,21 @@ def main() -> None:
         "TempSlider_ValueChanged",
         "StrengthSlider_ValueChanged",
         "BrightnessSlider_ValueChanged",
+        "DayTempSlider_ValueChanged",
+        "NightTempSlider_ValueChanged",
+    ):
+        start = filter_cs.index(f"private void {handler}")
+        end = filter_cs.find("\n    private void ", start + 1)
+        body = filter_cs[start:] if end < 0 else filter_cs[start:end]
+        require(body, "if (_loading) return;", handler)
+
+    # Toggled handlers must also be inert while XAML is initializing.
+    for handler in (
+        "BlueLightSwitch_Toggled",
+        "BrightnessSwitch_Toggled",
+        "DayNightSwitch_Toggled",
+        "FullscreenPauseSwitch_Toggled",
+        "FilterModeSelector_SelectionChanged",
     ):
         start = filter_cs.index(f"private void {handler}")
         end = filter_cs.find("\n    private void ", start + 1)

@@ -75,6 +75,12 @@ public class BreakReminderService : IDisposable
         if (!s.BreakReminderEnabled)
             return;
 
+        // 全屏程序（游戏/视频/演示）期间暂停计时，避免休息弹窗打断
+        if (s.PauseOnFullscreen && App.FullscreenPause.IsFullscreenActive && !_onBreak)
+        {
+            return; // 暂停工作计时
+        }
+
         // 智能暂停：用户离开电脑时暂停
         if (s.SmartPause && IsUserAway())
         {

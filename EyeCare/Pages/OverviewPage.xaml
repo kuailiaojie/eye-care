@@ -16,7 +16,7 @@
 
             <InfoBar IsOpen="True" Severity="Informational" IsClosable="True"
                      Title="20-20-20 护眼法则"
-                     Message="每工作 20 分钟，远眺 20 英尺（约 6 米）外至少 20 秒，给眼睛一个放松的机会。"/>
+                     Message="每工作 20 分钟，远眺 20 英尺（约 6 米）外至少 20 秒。临床研究表明，定时休息是缓解数字眼疲劳最有效的手段（比单纯过滤蓝光更有价值）。"/>
 
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"

@@ -84,7 +84,7 @@ public sealed partial class MainWindow : Window
         var s = App.Settings.Data;
         s.BlueLightEnabled = !s.BlueLightEnabled;
         App.Settings.Save();
-        App.FilterOverlay.ApplySettings();
+        App.ApplyFilters();
     }
 
     private void OnBreakStarted(bool longBreak)
@@ -106,6 +106,8 @@ public sealed partial class MainWindow : Window
     private void OnExit()
     {
         _isExiting = true;
+        App.GammaRamp.Dispose();        // 恢复所有显示器原始 Gamma Ramp
+        App.FullscreenPause.Dispose();
         App.FilterOverlay.Dispose();
         App.BreakReminder.Dispose();
         _breakWindow?.Close();

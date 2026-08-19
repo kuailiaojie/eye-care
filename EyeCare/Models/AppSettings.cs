@@ -3,6 +3,18 @@ using System.Text.Json.Serialization;
 namespace EyeCare.Models;
 
 /// <summary>
+/// 蓝光过滤实现方式。
+/// </summary>
+public enum FilterMode
+{
+    /// <summary>分层透明窗口叠加琥珀色（兼容性最好，所有模式均可用）。</summary>
+    Overlay,
+
+    /// <summary>系统级 Gamma 校正（f.lux / LightBulb 同款方案），直接压缩显示器蓝光通道输出。</summary>
+    GammaRamp
+}
+
+/// <summary>
 /// 应用设置数据模型。所有字段可序列化到 JSON 持久化。
 /// </summary>
 public class AppSettings
@@ -17,8 +29,17 @@ public class AppSettings
     /// <summary>过滤强度 0.0 ~ 1.0。</summary>
     public double FilterStrength { get; set; } = 0.5;
 
+    /// <summary>过滤实现方式（叠加层 / Gamma 校正）。</summary>
+    public FilterMode FilterMode { get; set; } = FilterMode.Overlay;
+
     /// <summary>是否根据日出日落自动切换。</summary>
     public bool AutoDayNight { get; set; } = false;
+
+    /// <summary>白天色温（AutoDayNight 开启时生效）。</summary>
+    public int DayColorTemperature { get; set; } = 6500;
+
+    /// <summary>夜间色温（AutoDayNight 开启时生效，越低越利于褪黑素分泌）。</summary>
+    public int NightColorTemperature { get; set; } = 3500;
 
     // ---------- 亮度控制 ----------
     /// <summary>是否启用亮度调节（通过降低画面亮度减轻刺眼）。</summary>
@@ -64,4 +85,7 @@ public class AppSettings
 
     /// <summary>关闭窗口时最小化到托盘。</summary>
     public bool MinimizeToTray { get; set; } = true;
+
+    /// <summary>检测到全屏程序（游戏 / 视频 / 演示）时自动暂停过滤与休息计时。</summary>
+    public bool PauseOnFullscreen { get; set; } = true;
 }

@@ -50,7 +50,7 @@ public sealed partial class OverviewPage : Page
         if (_loading) return;
         App.Settings.Data.BlueLightEnabled = BlueLightToggle.IsOn;
         App.Settings.Save();
-        App.FilterOverlay.ApplySettings();
+        App.ApplyFilters();
     }
 
     private void BrightnessToggle_Toggled(object sender, RoutedEventArgs e)
@@ -60,7 +60,7 @@ public sealed partial class OverviewPage : Page
             App.Settings.Data.Brightness = 0.85;
         App.Settings.Data.BrightnessEnabled = BrightnessToggle.IsOn;
         App.Settings.Save();
-        App.FilterOverlay.ApplySettings();
+        App.ApplyFilters();
     }
 
     private void BreakToggle_Toggled(object sender, RoutedEventArgs e)

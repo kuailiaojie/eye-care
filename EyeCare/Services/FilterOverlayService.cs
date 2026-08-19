@@ -1,13 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
+using EyeCare.Models;
 using NativeMethods = EyeCare.Native.NativeMethods;
 
 namespace EyeCare.Services;
 
 /// <summary>
 /// 覆盖窗口服务：在每个显示器上创建分层透明窗口，
-/// 实现「蓝光过滤」（琥珀色覆盖）与「屏幕亮度调节」（黑色覆盖）。
+/// 实现「蓝光过滤」（琥珀色覆盖，仅叠加层模式）与「屏幕亮度调节」（黑色覆盖）。
 /// 窗口置顶且鼠标穿透，不影响正常操作。
 /// </summary>
 public class FilterOverlayService
@@ -22,6 +24,7 @@ public class FilterOverlayService
 
     private readonly SettingsService _settings;
     private readonly List<MonitorOverlay> _overlays = new();
+    private Timer? _dayNightTimer;
     private bool _initialized;
 
     private class MonitorOverlay
@@ -124,17 +127,33 @@ public class FilterOverlayService
 
         var s = _settings.Data;
 
-        // 蓝光 alpha：启用时按「色温系数 × 强度」计算
-        int blueLightAlpha = 0;
-        if (s.BlueLightEnabled)
+        // 自动昼夜模式下每分钟刷新一次，让色温随日落平滑过渡
+        if (s.AutoDayNight)
         {
-            double tempFactor = ColorTemperatureFactor(s.ColorTemperature);
+            _dayNightTimer ??= new Timer(_ => App.UiDispatcher.TryEnqueue(ApplySettings), null, 60000, 60000);
+        }
+        else
+        {
+            _dayNightTimer?.Dispose();
+            _dayNightTimer = null;
+        }
+
+        // 全屏程序（游戏/视频）期间暂停所有覆盖层，避免干扰
+        bool pausedByFullscreen = s.PauseOnFullscreen && App.FullscreenPause.IsFullscreenActive;
+
+        // 蓝光 alpha：叠加层模式下按「有效色温 × 强度」计算；
+        // Gamma 校正模式下蓝光由系统级 Ramp 负责，叠加层不再叠加（避免双重过滤）。
+        int blueLightAlpha = 0;
+        if (s.BlueLightEnabled && !pausedByFullscreen && s.FilterMode == FilterMode.Overlay)
+        {
+            int effectiveTemp = DayNightSchedule.GetEffectiveColorTemperature(s);
+            double tempFactor = ColorTemperatureFactor(effectiveTemp);
             blueLightAlpha = (int)Math.Clamp(tempFactor * s.FilterStrength * 255.0, 0, 255);
         }
 
         // 亮度 alpha：亮度越低遮挡越强
         int dimAlpha = 0;
-        if (s.BrightnessEnabled)
+        if (s.BrightnessEnabled && !pausedByFullscreen)
         {
             dimAlpha = (int)Math.Clamp((1.0 - s.Brightness) * 255.0, 0, 255);
         }
@@ -170,6 +189,9 @@ public class FilterOverlayService
     /// <summary>关闭并销毁所有覆盖窗口。</summary>
     public void Dispose()
     {
+        _dayNightTimer?.Dispose();
+        _dayNightTimer = null;
+
         foreach (var overlay in _overlays)
         {
             if (overlay.BlueLight != IntPtr.Zero) NativeMethods.DestroyWindow(overlay.BlueLight);

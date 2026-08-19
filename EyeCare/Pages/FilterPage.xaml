@@ -20,7 +20,18 @@
                 <StackPanel Spacing="16">
                     <ToggleSwitch x:Name="BlueLightSwitch" Header="蓝光过滤（暖色调）" Toggled="BlueLightSwitch_Toggled"/>
                     <InfoBar IsOpen="True" Severity="Informational"
-                             Title="蓝光过滤说明" Message="开启后会叠加柔和的暖色滤镜，降低蓝光刺激；屏幕亮度请使用下方独立的亮度调节开关。"/>
+                             Title="蓝光过滤说明"
+                             Message="夜间降低屏幕色温有助于褪黑素分泌、改善睡眠；临床研究（Cochrane 2023）显示其对缓解视疲劳的直接证据有限，定时休息才是缓解数字眼疲劳最有效的手段。"/>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="过滤方式" FontWeight="SemiBold"/>
+                        <ComboBox x:Name="FilterModeSelector" SelectionChanged="FilterModeSelector_SelectionChanged" HorizontalAlignment="Left" MinWidth="280">
+                            <ComboBoxItem Content="叠加层（兼容性最好，所有场景可用）" Tag="Overlay"/>
+                            <ComboBoxItem Content="系统级 Gamma 校正（f.lux 同款，游戏全屏也生效）" Tag="GammaRamp"/>
+                        </ComboBox>
+                        <TextBlock x:Name="FilterModeHintText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+
                     <StackPanel Spacing="8">
                         <TextBlock Text="色温" FontWeight="SemiBold"/>
                         <Slider x:Name="TempSlider" Minimum="1000" Maximum="10000" StepFrequency="100"
@@ -33,6 +44,22 @@
                                 ValueChanged="StrengthSlider_ValueChanged"/>
                         <TextBlock x:Name="StrengthValueText" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
+
+                    <ToggleSwitch x:Name="DayNightSwitch" Header="自动昼夜色温（白天偏白，夜间偏暖）" Toggled="DayNightSwitch_Toggled"/>
+                    <StackPanel x:Name="DayNightPanel" Spacing="16">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="白天色温" FontWeight="SemiBold"/>
+                            <Slider x:Name="DayTempSlider" Minimum="4000" Maximum="10000" StepFrequency="100"
+                                    ValueChanged="DayTempSlider_ValueChanged"/>
+                            <TextBlock x:Name="DayTempValueText" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="夜间色温" FontWeight="SemiBold"/>
+                            <Slider x:Name="NightTempSlider" Minimum="1000" Maximum="6000" StepFrequency="100"
+                                    ValueChanged="NightTempSlider_ValueChanged"/>
+                            <TextBlock x:Name="NightTempValueText" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -41,12 +68,25 @@
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="16">
                     <ToggleSwitch x:Name="BrightnessSwitch" Header="屏幕亮度调节" Toggled="BrightnessSwitch_Toggled"/>
+                    <InfoBar IsOpen="True" Severity="Informational"
+                             Title="PWM 频闪提示"
+                             Message="若低亮度下屏幕出现肉眼可见频闪（PWM 调光），建议将显示器物理亮度调至 100%，再用本软件调暗，可同时获得低亮度与无频闪。"/>
                     <StackPanel Spacing="8">
                         <TextBlock Text="亮度" FontWeight="SemiBold"/>
                         <Slider x:Name="BrightnessSlider" Minimum="0.5" Maximum="1" StepFrequency="0.01"
                                 ValueChanged="BrightnessSlider_ValueChanged"/>
                         <TextBlock x:Name="BrightnessValueText" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="8">
+                    <ToggleSwitch x:Name="FullscreenPauseSwitch" Header="全屏程序时自动暂停（游戏 / 视频 / 演示）" Toggled="FullscreenPauseSwitch_Toggled"/>
+                    <TextBlock Text="检测到全屏程序时暂停过滤与休息计时，退出全屏后自动恢复（f.lux 同类行为）。"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
         </StackPanel>

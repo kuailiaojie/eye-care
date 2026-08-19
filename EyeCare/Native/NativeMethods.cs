@@ -120,4 +120,51 @@ internal static class NativeMethods
 
     /// <summary>由 R/G/B 合成 COLORREF。</summary>
     public static uint RGB(byte r, byte g, byte b) => (uint)(r | (g << 8) | (b << 16));
+
+    // ---------- Gamma 校正（f.lux / LightBulb 式系统级蓝光过滤） ----------
+    public const uint DISPLAY_DEVICE_ATTACHED_TO_DESKTOP = 0x00000001;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct DISPLAY_DEVICE
+    {
+        public uint cb;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string DeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceString;
+        public uint StateFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceID;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceKey;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
+    [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr CreateDC(string? lpszDriver, string lpszDevice, string? lpszOutput, IntPtr lpInitData);
+
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteDC(IntPtr hdc);
+
+    /// <summary>获取指定显示器当前的 Gamma Ramp（3 × 256 × ushort，按 R/G/B 排列）。</summary>
+    [DllImport("gdi32.dll")]
+    public static extern bool GetDeviceGammaRamp(IntPtr hdc, [In, Out] ushort[] lpRamp);
+
+    /// <summary>设置指定显示器的 Gamma Ramp（3 × 256 × ushort，按 R/G/B 排列）。</summary>
+    [DllImport("gdi32.dll")]
+    public static extern bool SetDeviceGammaRamp(IntPtr hdc, [In] ushort[] lpRamp);
+
+    // ---------- 全屏程序检测 ----------
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    public const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 }

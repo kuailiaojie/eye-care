@@ -33,7 +33,7 @@
                     <TextBlock Text="基于 Windows App SDK (WinUI 3) 与 Fluent Design 构建"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>
-                    <TextBlock Text="功能：蓝光过滤 · 亮度调节 · 休息提醒（20-20-20 法则）· 智能暂停"
+                    <TextBlock Text="功能：蓝光过滤（叠加层 / Gamma 校正）· 亮度调节 · 自动昼夜色温 · 休息提醒（20-20-20 法则）· 智能暂停 · 全屏自动暂停"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>
                 </StackPanel>
