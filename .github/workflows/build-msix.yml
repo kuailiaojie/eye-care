@@ -1,0 +1,107 @@
+name: Build MSIX for Store
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-msix:
+    name: Build MSIX (${{ matrix.platform }})
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x64
+            platform: x64
+            rid: win-x64
+          - name: x86
+            platform: x86
+            rid: win-x86
+          - name: arm64
+            platform: ARM64
+            rid: win-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.402'
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore
+        run: msbuild EyeCare/EyeCare.csproj /t:Restore /p:Platform=${{ matrix.platform }} /p:RuntimeIdentifier=${{ matrix.rid }}
+
+      - name: Build MSIX
+        run: |
+          msbuild EyeCare/EyeCare.csproj `
+            /t:Build /p:Configuration=Release `
+            /p:Platform=${{ matrix.platform }} `
+            /p:RuntimeIdentifier=${{ matrix.rid }} `
+            /p:WindowsPackageType=MSIX `
+            /p:AppxPackageOutput="$env:GITHUB_WORKSPACE\msix\EyeCare-${{ matrix.name }}.msix" `
+            /p:AppxPackageSigningEnabled=False `
+            /p:GenerateAppxPackageOnBuild=True `
+            /p:AppxSymbolPackageEnabled=False `
+            /p:AppxBundle=Never
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EyeCare-MSIX-${{ matrix.name }}
+          path: msix/*.msix
+          if-no-files-found: error
+
+  bundle:
+    name: Create Store bundle
+    needs: build-msix
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all MSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: msix-downloads
+
+      - name: Collect MSIX files
+        shell: pwsh
+        run: |
+          New-Item -Path msix -ItemType Directory -Force | Out-Null
+          Get-ChildItem -Path msix-downloads -Recurse -Filter *.msix | ForEach-Object {
+            Copy-Item $_.FullName -Destination msix\ -Force
+          }
+          Get-ChildItem msix\*.msix | ForEach-Object { Write-Host "MSIX: $($_.Name) ($($_.Length) bytes)" }
+
+      - name: MakeAppx bundle
+        shell: pwsh
+        run: |
+          $makeAppx = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\MakeAppx.exe"
+          if (-not (Test-Path $makeAppx)) {
+            $makeAppx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\MakeAppx.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $makeAppx) { throw "MakeAppx.exe not found" }
+          & $makeAppx bundle /d msix /p msix\EyeCare.msixbundle /v
+
+      - name: Prepare Store assets
+        shell: pwsh
+        run: |
+          New-Item -Path store-upload -ItemType Directory -Force | Out-Null
+          Copy-Item store\* store-upload\ -Recurse -Force
+          Copy-Item msix\EyeCare.msixbundle store-upload\ -Force
+
+      - name: Upload Store bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: EyeCare-Store-Upload
+          path: store-upload/*
+          if-no-files-found: error

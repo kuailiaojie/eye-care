@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap uap3 rescap com desktop">
+
+  <Identity
+    Name="kuailiaojie.EyeCare"
+    Publisher="CN=kuailiaojie"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>护眼助手</DisplayName>
+    <PublisherDisplayName>kuailiaojie</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="zh-cn" />
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.6" MinVersion="1.6.240829007" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
+  </Dependencies>
+
+  <Applications>
+    <Application Id="App"
+      Executable="EyeCare.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        AppName="护眼助手"
+        AppShortName="EyeCare"
+        Description="护眼助手 - 蓝光过滤、亮度调节、20-20-20 休息提醒"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          ShortName="护眼助手">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150" />
+            <uap:ShowOn Tile="wide310x150" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <desktop:Extension Category="windows.toastactivator">
+          <desktop:ToastActivator ToastActivatorCLSID="00000000-0000-0000-0000-000000000001" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

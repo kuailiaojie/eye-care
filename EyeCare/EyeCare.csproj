@@ -10,8 +10,11 @@
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
-    <WindowsPackageType>None</WindowsPackageType>
+
+    <!-- MSIX 打包模式 -->
+    <WindowsPackageType>MSIX</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -26,6 +29,11 @@
     <Content Include="Assets\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <!-- MSIX 打包资源 -->
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
 
 </Project>
