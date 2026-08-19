@@ -1,87 +1,103 @@
-# Microsoft Store 打包准备脚本
-# 适用于 Windows App SDK + WinUI 3 + .NET 8 项目
-# 生成：EyeCare.msix / EyeCare.msixupload
+﻿# Microsoft Store 提交准备脚本
+# 1. 构建三平台 MSIX + bundle + .msixupload（调用 build-msix.ps1）
+# 2. 收集 Store 提交资产（图标 PNG / 商店列表 / 隐私政策）→ msix\upload\assets.zip
+# 3. 校验 Package.appxmanifest 身份与 Partner Center 分配值一致
+# 4. 生成商店身份速查文件 store-identity.md，供 Partner Center 填报时复制粘贴
+#
+# 用法：powershell -ExecutionPolicy Bypass -File tools\prepare-store.ps1 [-SkipBuild]
+# 产物：msix\upload\ 目录下所有文件
+
+param(
+    [switch]$SkipBuild
+)
 
 $ErrorActionPreference = "Stop"
 
-$projectDir = "$PSScriptRoot\EyeCare"
-$msixDir = "$PSScriptRoot\msix"
-$uploadDir = "$PSScriptRoot\msix\upload"
-$storeDir = "$PSScriptRoot\store"
+$root = "$PSScriptRoot\.."
+$msixDir = "$root\msix"
+$uploadDir = "$root\msix\upload"
+$storeDir = "$root\store"
+$manifestPath = "$root\EyeCare\Package.appxmanifest"
 
-New-Item -Path $msixDir -ItemType Directory -Force | Out-Null
+# ---- Partner Center 分配的正式身份（请勿修改）----
+$store = [ordered]@{
+    "包名 (Package Identity Name)" = "DE3C23BA.666688A021C8"
+    "发布者 (Publisher)"           = "CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363"
+    "发布者显示名 (PublisherDisplayName)" = "块了解"
+    "包系列名 (PFN)"               = "DE3C23BA.666688A021C8_p7a589d6fj0mw"
+    "包 SID"                       = "S-1-15-2-2625154744-1510418594-1530711297-101362933-1894812014-2551522639-3939733232"
+    "Store ID"                     = "9N57F4STPJQD"
+    "Store 链接"                   = "https://apps.microsoft.com/detail/9N57F4STPJQD"
+    "Store 协议链接"               = "ms-windows-store://pdp/?productid=9N57F4STPJQD"
+    "MSA 应用 ID"                  = "a33bf7af-64f3-4984-b60f-8093300d6852"
+}
+
+# ---- 0. 校验 manifest 身份与 Partner Center 一致 ----
+Write-Host "0. 校验 Package.appxmanifest 身份..." -ForegroundColor Cyan
+# 注意：PS 5.1 的 Get-Content 默认按 ANSI/GBK 读取，UTF-8 中文会被破坏，必须显式指定编码
+[xml]$manifest = Get-Content -Path $manifestPath -Raw -Encoding UTF8
+$checks = @(
+    @{ 标签 = "Identity/Name";            实际 = $manifest.Package.Identity.Name;          期望 = $store["包名 (Package Identity Name)"] }
+    @{ 标签 = "Identity/Publisher";       实际 = $manifest.Package.Identity.Publisher;     期望 = $store["发布者 (Publisher)"] }
+    @{ 标签 = "Properties/PublisherDisplayName"; 实际 = $manifest.Package.Properties.PublisherDisplayName; 期望 = $store["发布者显示名 (PublisherDisplayName)"] }
+)
+$mismatch = $false
+foreach ($c in $checks) {
+    if ($c.实际 -ne $c.期望) {
+        Write-Host "  ✗ $($c.标签) 不一致：manifest='$($c.实际)' 期望='$($c.期望)'" -ForegroundColor Red
+        $mismatch = $true
+    } else {
+        Write-Host "  ✓ $($c.标签) = $($c.实际)" -ForegroundColor Green
+    }
+}
+if ($mismatch) { throw "manifest 身份与 Partner Center 不一致，请先修正 EyeCare\Package.appxmanifest" }
+
+# ---- 1. 构建 MSIX ----
+if (-not $SkipBuild) {
+    Write-Host "1. 构建 MSIX（三平台 + bundle + msixupload）" -ForegroundColor Cyan
+    & "$PSScriptRoot\build-msix.ps1"
+    if ($LASTEXITCODE -ne 0) { throw "build-msix.ps1 失败" }
+} else {
+    Write-Host "1. 跳过构建（-SkipBuild）" -ForegroundColor DarkGray
+}
+
+# ---- 2. 收集 Store 提交资产 ----
+Write-Host "2. 收集 Store 提交资产..." -ForegroundColor Cyan
 New-Item -Path $uploadDir -ItemType Directory -Force | Out-Null
-New-Item -Path $storeDir -ItemType Directory -Force | Out-Null
 
-Write-Host "1. 构建 MSIX" -ForegroundColor Cyan
-$msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+# 图标资源（由 tools\gen_store_assets.py 从 eye.ico 生成，勿用 .ico 冒充 .png）
+Get-ChildItem "$storeDir\*.png" | Copy-Item -Destination $uploadDir -Force
+# 商店列表与隐私政策（供填报时复制）
+Copy-Item "$storeDir\Store-Listing.md"  $uploadDir -Force
+Copy-Item "$root\PRIVACY.md"            $uploadDir -Force
+# MSIX 产物
+Get-ChildItem "$msixDir\*.msixupload", "$msixDir\*.msixbundle", "$msixDir\EyeCare-*.msix" -ErrorAction SilentlyContinue |
+    Copy-Item -Destination $uploadDir -Force
 
-# 使用 Windows App SDK 的打包工具生成 MSIX
-# 这里假设你已安装了 Windows App SDK PowerShell 工具
-# 或者使用 GitHub Actions 的打包步骤
+# 资产 ZIP（图标 PNG 打包，便于一次性上传）
+Compress-Archive -Path "$uploadDir\*.png" -DestinationPath "$uploadDir\assets.zip" -Force
 
-Write-Host "2. 生成 Store 资产" -ForegroundColor Cyan
-# 图标（必须 150x150 PNG）
-Copy-Item "$projectDir\Assets\eye.ico" "$storeDir\Square150x150Logo.scale-200.png"
+# ---- 3. 生成商店身份速查文件 ----
+Write-Host "3. 生成 store-identity.md..." -ForegroundColor Cyan
+$lines = @("# EyeCare 商店身份速查（Partner Center 分配）", "")
+foreach ($k in $store.Keys) {
+    $lines += "- **$k**：``$($store[$k])``"
+}
+$lines += "", "> 打包身份以 EyeCare\Package.appxmanifest 为准；本文件仅用于 Partner Center 填报对照。"
+$lines | Out-File -FilePath "$uploadDir\store-identity.md" -Encoding UTF8
 
-# 横幅（必须 1200x300 PNG）
-Copy-Item "$projectDir\Assets\banner.png" "$storeDir\Banner.png"
-
-# Logo（必须 50x50 PNG）
-Copy-Item "$projectDir\Assets\eye.ico" "$storeDir\SmallTile.png"
-
-# Logo（必须 300x300 PNG）
-Copy-Item "$projectDir\Assets\eye.ico" "$storeDir\LargeTile.png"
-
-Write-Host "3. 创建 MSIX 包" -ForegroundColor Cyan
-# 使用 Windows App SDK 打包工具
-# 推荐命令（如果已安装 SDK 工具）：
-# winget pack --project "$projectDir" --output "$msixDir"
-
-# 如果没有 SDK 工具，使用 PowerShell 手动打包
-# 这里简化版，实际需要 Visual Studio + Windows App SDK 工具链
-$packagePath = "$msixDir\EyeCare.msix"
-
-# 实际打包命令示例（请根据你的 SDK 安装位置调整）
-# msbuild "$projectDir\EyeCare\EyeCare.csproj" /t:Package /p:AppxPackageSigningEnabled=false /p:AppxPackageOutputPath="$msixDir" /p:AppxPackageName="EyeCare" /p:AppxPackageVersion="1.0.0.0"
-
-Write-Host "4. 创建 Store 资产 ZIP" -ForegroundColor Cyan
-# 用于 Store 提交的 assets.zip
-Compress-Archive -Path "$storeDir" -DestinationPath "$uploadDir\assets.zip" -Force
-
-Write-Host "5. 准备 Store 提交清单" -ForegroundColor Cyan
-$storeManifest = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<PackageManifest>
-  <PackageIdentity Name="YourCompany.EyeCare" Version="1.0.0.0" Publisher="CN=YourName" />
-  <Dependencies>
-    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.2" MinVersion="1.2.0.0" />
-  </Dependencies>
-  <Resources>
-    <Resource Language="zh-CN" />
-  </Resources>
-  <Properties>
-    <DisplayName>护眼助手</DisplayName>
-    <PublisherDisplayName>护眼助手</PublisherDisplayName>
-    <PublisherName>护眼助手</PublisherName>
-    <Logo>assets\Square150x150Logo.scale-200.png</Logo>
-    <Banner>assets\Banner.png</Banner>
-  </Properties>
-  <Applications>
-    <Application Id="EyeCare" EntryPoint="EyeCare.App" />
-  </Applications>
-</PackageManifest>
-"@
-
-$storeManifest | Out-File -FilePath "$uploadDir\manifest.xml" -Encoding UTF8
-
-Write-Host "✅ 打包准备完成"
-Write-Host "MSIX 包: $packagePath"
-Write-Host "Store 资产: $uploadDir\assets.zip"
-Write-Host "Store 清单: $uploadDir\manifest.xml"
-
-Write-Host "下一步："
-Write-Host "1. 上传 assets.zip 到 https://partner.microsoft.com/dashboard/developer/dashboard/developer-dashboard"
-Write-Host "2. 填写 Store 资产说明（图标、截图、描述）"
-Write-Host "3. 提交发布（Submit for release）"
-Write-Host "4. 等待审核通过后上架"
+Write-Host ""
+Write-Host "✅ 打包准备完成" -ForegroundColor Green
+Write-Host "上传目录: $uploadDir"
+Write-Host ""
+Write-Host "产物清单：" -ForegroundColor Cyan
+Get-ChildItem $uploadDir -File | ForEach-Object {
+    Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1KB, 1)) KB"
+}
+Write-Host ""
+Write-Host "下一步：" -ForegroundColor Yellow
+Write-Host "  1. 打开 https://partner.microsoft.com/dashboard 进入应用「护眼助手」(Store ID: $($store['Store ID']))"
+Write-Host "  2. 新建提交 → 上传包：选择 EyeCare.msixupload（或 .msixbundle）"
+Write-Host "  3. 按 store\Store-Listing.md 填写描述，上传图标（assets.zip 内含各尺寸 PNG）"
+Write-Host "  4. 隐私政策 URL：https://github.com/kuailiaojie/eye-care/blob/main/PRIVACY.md"
+Write-Host "  5. 提交送审（每次提交包版本号必须高于上一版，改 Package.appxmanifest 的 Version）"

@@ -1,5 +1,21 @@
 # EyeCare 护眼助手 - Microsoft Store 提交资产
 
+## 商店身份信息（Partner Center 分配，请勿修改）
+
+| 项目 | 值 |
+|---|---|
+| 包名 (Package Identity Name) | `DE3C23BA.666688A021C8` |
+| 发布者 (Publisher) | `CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363` |
+| 发布者显示名 (PublisherDisplayName) | 块了解 |
+| 包系列名 (PFN) | `DE3C23BA.666688A021C8_p7a589d6fj0mw` |
+| 包 SID | `S-1-15-2-2625154744-1510418594-1530711297-101362933-1894812014-2551522639-3939733232` |
+| Store ID | `9N57F4STPJQD` |
+| Store 链接 | https://apps.microsoft.com/detail/9N57F4STPJQD |
+| Store 协议链接 | `ms-windows-store://pdp/?productid=9N57F4STPJQD` |
+| MSA 应用 ID | `a33bf7af-64f3-4984-b60f-8093300d6852` |
+
+> 打包时以上身份由 `EyeCare\Package.appxmanifest` 声明；VS 商店关联可复用 `EyeCare\Package.StoreAssociation.xml`。
+
 ## 应用名称
 护眼助手 (EyeCare)
 

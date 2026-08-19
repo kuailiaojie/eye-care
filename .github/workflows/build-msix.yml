@@ -92,12 +92,22 @@ jobs:
           if (-not $makeAppx) { throw "MakeAppx.exe not found" }
           & $makeAppx bundle /d msix /p msix\EyeCare.msixbundle /v
 
+      - name: Create .msixupload for Store
+        shell: pwsh
+        run: |
+          $makeMsixUpload = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makemsixupload.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $makeMsixUpload) { throw "makemsixupload.exe not found" }
+          & $makeMsixUpload /p msix\EyeCare.msixbundle /o msix\EyeCare.msixupload
+          if ($LASTEXITCODE -ne 0) { throw "makemsixupload failed" }
+          Get-ChildItem msix\EyeCare.msixupload | ForEach-Object { Write-Host "MSIXUPLOAD: $($_.Name) ($($_.Length) bytes)" }
+
       - name: Prepare Store assets
         shell: pwsh
         run: |
           New-Item -Path store-upload -ItemType Directory -Force | Out-Null
           Copy-Item store\* store-upload\ -Recurse -Force
           Copy-Item msix\EyeCare.msixbundle store-upload\ -Force
+          Copy-Item msix\EyeCare.msixupload store-upload\ -Force
 
       - name: Upload Store bundle
         uses: actions/upload-artifact@v4

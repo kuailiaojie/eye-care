@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Visual Studio 商店关联文件（由 VS 自动读取，手动关联时亦可复用）。
+  用于 "项目右键 → 发布 → 与 Microsoft Store 关联" 时自动填入正式身份。
+  对应 Partner Center 分配的 MSA 应用 ID。
+-->
+<StoreAssociation xmlns="http://schemas.microsoft.com/appx/2013/StoreAssociation">
+  <Publisher>CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363</Publisher>
+  <PublisherDisplayName>块了解</PublisherDisplayName>
+  <IdentityName>DE3C23BA.666688A021C8</IdentityName>
+  <PackageIdentityName>DE3C23BA.666688A021C8</PackageIdentityName>
+  <StoreId>9N57F4STPJQD</StoreId>
+  <MSAAppID>a33bf7af-64f3-4984-b60f-8093300d6852</MSAAppID>
+</StoreAssociation>

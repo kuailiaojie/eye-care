@@ -87,6 +87,29 @@ dotnet publish EyeCare/EyeCare.csproj -c Release -p:Platform=x64 -r win-x64 --se
 
 在页面 GitHub → **Actions** → 选择工作流 → **Run workflow** 即可手动触发，完成后到 Artifacts 下载对应平台的压缩包。
 
+## 🏪 Microsoft Store 打包
+
+应用已在 Partner Center 注册（Store ID `9N57F4STPJQD`），正式身份写入 `EyeCare/Package.appxmanifest`：
+
+| 项目 | 值 |
+|---|---|
+| 包名 (Identity Name) | `DE3C23BA.666688A021C8` |
+| 发布者 (Publisher) | `CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363` |
+| 包系列名 (PFN) | `DE3C23BA.666688A021C8_p7a589d6fj0mw` |
+| Store 链接 | https://apps.microsoft.com/detail/9N57F4STPJQD |
+
+**打包/提交流程**（任选其一）：
+
+- **本地一键准备**（VS Developer Command Prompt）：
+  ```bash
+  powershell -ExecutionPolicy Bypass -File tools\prepare-store.ps1
+  ```
+  该脚本会校验 manifest 身份 → 构建 x64/x86/ARM64 三平台 MSIX → 生成 `EyeCare.msixbundle` 与 `EyeCare.msixupload` → 汇总商店资产到 `msix\upload\`。
+- **CI 自动打包**：`.github/workflows/build-msix.yml` 在 `main` push 或手动触发时构建三平台 MSIX，并产出 `EyeCare.msixupload`（Store 上传格式）与 `EyeCare-Store-Upload` 资产包。
+- 商店列表文案见 `store/Store-Listing.md`，图标资源由 `tools/gen_store_assets.py` 生成，隐私政策见 `PRIVACY.md`。
+
+> 注意：每次提交到 Store 的包版本号必须高于上一版，改 `Package.appxmanifest` 中 `Identity` 的 `Version` 即可。
+
 ## 📝 使用说明
 
 1. 启动后应用驻留系统托盘，自动按默认设置开启蓝光过滤（色温 4500K）与休息提醒（20-20-20）。

@@ -9,14 +9,23 @@
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   IgnorableNamespaces="uap uap3 rescap com desktop">
 
+  <!--
+    Microsoft Store 正式身份（Partner Center 分配，请勿手动修改）：
+    Name / Identity     DE3C23BA.666688A021C8
+    Publisher           CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363
+    PublisherDisplayName 块了解
+    PFN                 DE3C23BA.666688A021C8_p7a589d6fj0mw
+    Store ID            9N57F4STPJQD
+    Store 链接           https://apps.microsoft.com/detail/9N57F4STPJQD
+  -->
   <Identity
-    Name="kuailiaojie.EyeCare"
-    Publisher="CN=kuailiaojie"
+    Name="DE3C23BA.666688A021C8"
+    Publisher="CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363"
     Version="1.0.0.0" />
 
   <Properties>
     <DisplayName>护眼助手</DisplayName>
-    <PublisherDisplayName>kuailiaojie</PublisherDisplayName>
+    <PublisherDisplayName>块了解</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

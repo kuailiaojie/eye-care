@@ -4,6 +4,9 @@ obj/
 publish/
 *.user
 
+# MSIX packaging output (tools/build-msix.ps1, tools/prepare-store.ps1)
+msix/
+
 # Visual Studio
 .vs/
 *.suo
