@@ -75,6 +75,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowAndActivate()
     {
+        AppWindow.Show();
         Activate();
     }
 

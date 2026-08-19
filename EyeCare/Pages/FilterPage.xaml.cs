@@ -32,6 +32,11 @@ public sealed partial class FilterPage : Page
 
     private void UpdateLabels()
     {
+        // Slider 的 ValueChanged 可能在 InitializeComponent 尚未完成时触发。
+        // 所有控件创建完成后才更新标签，避免导航到本页时崩溃。
+        if (TempValueText is null || StrengthValueText is null || BrightnessValueText is null)
+            return;
+
         TempValueText.Text = $"{TempSlider.Value:N0} K" + TemperatureHint((int)TempSlider.Value);
         StrengthValueText.Text = $"{(StrengthSlider.Value * 100):N0}%";
         BrightnessValueText.Text = $"{(BrightnessSlider.Value * 100):N0}%";
@@ -65,12 +70,18 @@ public sealed partial class FilterPage : Page
     private void BrightnessSwitch_Toggled(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
+        if (BrightnessSwitch.IsOn && App.Settings.Data.Brightness >= 0.999)
+        {
+            App.Settings.Data.Brightness = 0.85;
+            BrightnessSlider.Value = 0.85;
+        }
         App.Settings.Data.BrightnessEnabled = BrightnessSwitch.IsOn;
         Apply();
     }
 
     private void TempSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        if (_loading) return;
         App.Settings.Data.ColorTemperature = (int)TempSlider.Value;
         UpdateLabels();
         Apply();
@@ -78,6 +89,7 @@ public sealed partial class FilterPage : Page
 
     private void StrengthSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        if (_loading) return;
         App.Settings.Data.FilterStrength = StrengthSlider.Value;
         UpdateLabels();
         Apply();
@@ -85,6 +97,7 @@ public sealed partial class FilterPage : Page
 
     private void BrightnessSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        if (_loading) return;
         App.Settings.Data.Brightness = BrightnessSlider.Value;
         UpdateLabels();
         Apply();

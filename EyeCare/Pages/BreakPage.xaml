@@ -6,8 +6,9 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     NavigationCacheMode="Required">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <Grid HorizontalAlignment="Stretch">
+        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Center">
             <StackPanel Spacing="4">
                 <TextBlock Text="休息提醒" Style="{StaticResource TitleTextBlockStyle}"/>
                 <TextBlock Text="定时提醒你起身活动，放松眼睛和身体" Style="{StaticResource SubtitleTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -66,5 +67,6 @@
                 </StackPanel>
             </Border>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>

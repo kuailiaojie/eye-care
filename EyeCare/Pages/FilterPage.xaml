@@ -6,8 +6,9 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     NavigationCacheMode="Required">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <Grid HorizontalAlignment="Stretch">
+        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Center">
             <StackPanel Spacing="4">
                 <TextBlock Text="蓝光与亮度" Style="{StaticResource TitleTextBlockStyle}"/>
                 <TextBlock Text="过滤有害蓝光，调节屏幕亮度，让眼睛更舒适" Style="{StaticResource SubtitleTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -17,9 +18,9 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="16">
-                    <ToggleSwitch x:Name="BlueLightSwitch" Header="蓝光过滤" Toggled="BlueLightSwitch_Toggled"/>
-                    <InfoBar IsOpen="False" Severity="Informational"
-                             Title="提示" Message="开启后屏幕会叠加一层柔和的暖色滤镜，减少夜间视网膜受到的蓝光刺激。"/>
+                    <ToggleSwitch x:Name="BlueLightSwitch" Header="蓝光过滤（暖色调）" Toggled="BlueLightSwitch_Toggled"/>
+                    <InfoBar IsOpen="True" Severity="Informational"
+                             Title="蓝光过滤说明" Message="开启后会叠加柔和的暖色滤镜，降低蓝光刺激；屏幕亮度请使用下方独立的亮度调节开关。"/>
                     <StackPanel Spacing="8">
                         <TextBlock Text="色温" FontWeight="SemiBold"/>
                         <Slider x:Name="TempSlider" Minimum="1000" Maximum="10000" StepFrequency="100"
@@ -49,5 +50,6 @@
                 </StackPanel>
             </Border>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>

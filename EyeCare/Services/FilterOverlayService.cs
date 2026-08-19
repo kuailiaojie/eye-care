@@ -14,6 +14,8 @@ public class FilterOverlayService
 {
     private const string BlueLightClass = "EyeCareBlueLightOverlay";
     private const string DimClass = "EyeCareDimOverlay";
+    private const uint WM_NCHITTEST = 0x0084;
+    private const int HTTRANSPARENT = -1;
 
     // 蓝光琥珀色基调（COLORREF = 0x00BBGGRR，固定色相，通过 alpha 控制强度）
     private const uint AmberColor = 0x000082FF; // R=255, G=130, B=0
@@ -49,7 +51,12 @@ public class FilterOverlayService
     }
 
     private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-        => NativeMethods.DefWindowProc(hWnd, msg, wParam, lParam);
+    {
+        // 覆盖层必须完全鼠标穿透，否则会拦截主窗口和其他应用的点击。
+        if (msg == WM_NCHITTEST)
+            return new IntPtr(HTTRANSPARENT);
+        return NativeMethods.DefWindowProc(hWnd, msg, wParam, lParam);
+    }
 
     private bool EnumProc(IntPtr hMonitor, IntPtr hdc, ref NativeMethods.RECT lprcMonitor, IntPtr lParam)
     {

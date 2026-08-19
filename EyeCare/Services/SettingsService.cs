@@ -37,7 +37,13 @@ public class SettingsService
                 var json = File.ReadAllText(SettingsPath);
                 var loaded = JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions);
                 if (loaded is not null)
+                {
+                    // 1.0 was the old default and made enabling brightness appear to do nothing.
+                    // Migrate untouched legacy settings to a useful visible starting value.
+                    if (!loaded.BrightnessEnabled && loaded.Brightness >= 0.999)
+                        loaded.Brightness = 0.85;
                     Data = loaded;
+                }
             }
         }
         catch

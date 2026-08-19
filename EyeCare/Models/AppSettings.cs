@@ -25,7 +25,7 @@ public class AppSettings
     public bool BrightnessEnabled { get; set; } = false;
 
     /// <summary>亮度系数 0.0 ~ 1.0（1.0 为原始亮度）。</summary>
-    public double Brightness { get; set; } = 1.0;
+    public double Brightness { get; set; } = 0.85;
 
     /// <summary>是否根据时间自动调节亮度。</summary>
     public bool AutoBrightness { get; set; } = false;

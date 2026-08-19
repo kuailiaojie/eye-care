@@ -6,8 +6,9 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     NavigationCacheMode="Required">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <Grid HorizontalAlignment="Stretch">
+        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Center">
             <StackPanel Spacing="4">
                 <TextBlock Text="常规设置" Style="{StaticResource TitleTextBlockStyle}"/>
                 <TextBlock Text="应用行为与关于信息" Style="{StaticResource SubtitleTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -38,5 +39,6 @@
                 </StackPanel>
             </Border>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>

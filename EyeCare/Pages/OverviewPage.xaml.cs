@@ -56,6 +56,8 @@ public sealed partial class OverviewPage : Page
     private void BrightnessToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
+        if (BrightnessToggle.IsOn && App.Settings.Data.Brightness >= 0.999)
+            App.Settings.Data.Brightness = 0.85;
         App.Settings.Data.BrightnessEnabled = BrightnessToggle.IsOn;
         App.Settings.Save();
         App.FilterOverlay.ApplySettings();
