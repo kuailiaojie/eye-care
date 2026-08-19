@@ -121,14 +121,14 @@ public class TrayIconService : IDisposable
     private void ShowContextMenu(IntPtr hwnd)
     {
         IntPtr menu = CreatePopupMenu();
-        AppendMenu(menu, 0x00000000, CmdOpen, "打开护眼助手");
-        AppendMenu(menu, 0x00000800, 0, null); // 分隔线
+        AppendMenu(menu, 0x00000000, new UIntPtr(CmdOpen), "打开护眼助手");
+        AppendMenu(menu, 0x00000800, UIntPtr.Zero, null); // 分隔线
 
         uint blueFlag = _settings.Data.BlueLightEnabled ? 0x00000008u : 0u; // MF_CHECKED
-        AppendMenu(menu, blueFlag, CmdToggleBlue, "蓝光过滤");
-        AppendMenu(menu, 0x00000000, CmdBreakNow, "现在休息一下");
-        AppendMenu(menu, 0x00000800, 0, null);
-        AppendMenu(menu, 0x00000000, CmdExit, "退出");
+        AppendMenu(menu, blueFlag, new UIntPtr(CmdToggleBlue), "蓝光过滤");
+        AppendMenu(menu, 0x00000000, new UIntPtr(CmdBreakNow), "现在休息一下");
+        AppendMenu(menu, 0x00000800, UIntPtr.Zero, null);
+        AppendMenu(menu, 0x00000000, new UIntPtr(CmdExit), "退出");
 
         // 获取当前光标位置弹出菜单
         GetCursorPos(out POINT pt);
@@ -214,9 +214,19 @@ public class TrayIconService : IDisposable
         public IntPtr hIcon;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string? szTip;
+        public uint dwState;
+        public uint dwStateMask;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string? szInfo;
+        public uint uVersionOrTimeout;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string? szInfoTitle;
+        public uint dwInfoFlags;
+        public Guid guidItem;
+        public IntPtr hBalloonIcon;
     }
 
-    [DllImport("user32.dll")]
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "Shell_NotifyIconW")]
     private static extern bool Shell_NotifyIcon(uint dwMessage, ref NOTIFYICONDATA lpData);
 
     [DllImport("user32.dll")]
@@ -240,8 +250,8 @@ public class TrayIconService : IDisposable
     [DllImport("user32.dll")]
     private static extern IntPtr CreatePopupMenu();
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool AppendMenu(IntPtr hMenu, uint uFlags, int uIDNewItem, string? lpNewItem);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "AppendMenuW")]
+    private static extern bool AppendMenu(IntPtr hMenu, uint uFlags, UIntPtr uIDNewItem, string? lpNewItem);
 
     [DllImport("user32.dll")]
     private static extern bool TrackPopupMenu(IntPtr hMenu, uint uFlags, int x, int y, int nReserved, IntPtr hWnd, IntPtr prcRect);

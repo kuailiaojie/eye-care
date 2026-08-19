@@ -41,7 +41,7 @@ internal static class NativeMethods
         public int Left, Top, Right, Bottom;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct WNDCLASSEX
     {
         public uint cbSize;
@@ -99,7 +99,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetModuleHandleW")]
     public static extern IntPtr GetModuleHandle(string? lpModuleName);
 
     [DllImport("gdi32.dll")]
