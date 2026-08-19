@@ -27,15 +27,18 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore EyeCare/EyeCare.csproj -p:Platform=${{ matrix.platform }} -r win-${{ matrix.platform }}
+        run: dotnet restore EyeCare/EyeCare.csproj
 
-      - name: Build
-        run: dotnet build EyeCare/EyeCare.csproj -c Release -p:Platform=${{ matrix.platform }} -r win-${{ matrix.platform }} --no-restore
+      - name: Build Release
+        run: dotnet build EyeCare/EyeCare.csproj -c Release --no-restore
 
-      - name: Publish self-contained
+      - name: Publish self-contained (${{ matrix.platform }})
         run: >
-          dotnet publish EyeCare/EyeCare.csproj -c Release -p:Platform=${{ matrix.platform }}
-          -r win-${{ matrix.platform }} --self-contained true -o publish/${{ matrix.platform }}
+          dotnet publish EyeCare/EyeCare.csproj -c Release
+          -p:Platform=${{ matrix.platform }}
+          -r win-${{ matrix.platform }}
+          --self-contained true
+          -o publish/${{ matrix.platform }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
