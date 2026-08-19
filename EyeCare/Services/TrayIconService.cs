@@ -124,7 +124,7 @@ public class TrayIconService : IDisposable
         AppendMenu(menu, 0x00000000, CmdOpen, "打开护眼助手");
         AppendMenu(menu, 0x00000800, 0, null); // 分隔线
 
-        uint blueFlag = _settings.Data.BlueLightEnabled ? 0x00000008 : 0; // MF_CHECKED
+        uint blueFlag = _settings.Data.BlueLightEnabled ? 0x00000008u : 0u; // MF_CHECKED
         AppendMenu(menu, blueFlag, CmdToggleBlue, "蓝光过滤");
         AppendMenu(menu, 0x00000000, CmdBreakNow, "现在休息一下");
         AppendMenu(menu, 0x00000800, 0, null);

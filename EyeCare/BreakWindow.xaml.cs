@@ -1,5 +1,7 @@
 using System;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Windowing;
+using Microsoft.UI;
 using WinRT.Interop;
 
 namespace EyeCare;
@@ -19,10 +21,14 @@ public sealed partial class BreakWindow : Window
         InitializeComponent();
         App.BreakReminder.BreakTick += OnBreakTick;
 
-        // 设为全屏 + 置顶
-        var area = Windows.Graphics.DisplayArea.Primary;
-        AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(
-            area.WorkArea.X, area.WorkArea.Y, area.WorkArea.Width, area.WorkArea.Height));
+        // 设为主显示器工作区大小并置顶
+        var hwnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        if (displayArea is not null)
+        {
+            AppWindow.MoveAndResize(displayArea.WorkArea);
+        }
     }
 
     public void Show(bool longBreak)

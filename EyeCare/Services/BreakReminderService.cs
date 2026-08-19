@@ -15,7 +15,6 @@ public class BreakReminderService : IDisposable
     private int _elapsedWorkSeconds;
     private int _remainingBreakSeconds;
     private bool _onBreak;
-    private bool _smartPaused;
     private int _workedSinceLongBreakSeconds;
 
     /// <summary>工作计时每秒进度（秒）。</summary>
@@ -74,23 +73,15 @@ public class BreakReminderService : IDisposable
     {
         var s = _settings.Data;
         if (!s.BreakReminderEnabled)
-        {
-            _smartPaused = false;
             return;
-        }
 
         // 智能暂停：用户离开电脑时暂停
         if (s.SmartPause && IsUserAway())
         {
             if (!_onBreak)
             {
-                _smartPaused = true;
                 return; // 暂停工作计时
             }
-        }
-        else
-        {
-            _smartPaused = false;
         }
 
         if (_onBreak)
