@@ -19,7 +19,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240829007" />
+    <!-- Required by Windows App SDK 1.6 when the runner SDK lacks the Windows reference pack. -->
+    <PackageReference Include="Microsoft.Windows.SDK.NET.Ref" Version="10.0.26100.1" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
