@@ -92,14 +92,20 @@ jobs:
           if (-not $makeAppx) { throw "MakeAppx.exe not found" }
           & $makeAppx bundle /d msix /p msix\EyeCare.msixbundle /v
 
-      - name: Create .msixupload for Store
+      # NOTE: makemsixupload.exe was removed from newer Windows SDKs (10.0.22621+),
+      # which is the only SDK on windows-latest runners. Partner Center accepts the
+      # raw .msixbundle directly, so a missing tool is a warning, not a failure.
+      - name: Create .msixupload for Store (optional)
         shell: pwsh
         run: |
-          $makeMsixUpload = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makemsixupload.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $makeMsixUpload) { throw "makemsixupload.exe not found" }
-          & $makeMsixUpload /p msix\EyeCare.msixbundle /o msix\EyeCare.msixupload
-          if ($LASTEXITCODE -ne 0) { throw "makemsixupload failed" }
-          Get-ChildItem msix\EyeCare.msixupload | ForEach-Object { Write-Host "MSIXUPLOAD: $($_.Name) ($($_.Length) bytes)" }
+          $makeMsixUpload = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makemsixupload.exe","C:\Program Files (x86)\Windows Kits\10\bin\*\x86\makemsixupload.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $makeMsixUpload) {
+            Write-Warning "makemsixupload.exe not found (removed in Windows 11 SDK); skipping .msixupload - upload EyeCare.msixbundle to Partner Center instead"
+          } else {
+            & $makeMsixUpload /p msix\EyeCare.msixbundle /o msix\EyeCare.msixupload
+            if ($LASTEXITCODE -ne 0) { throw "makemsixupload failed" }
+            Get-ChildItem msix\EyeCare.msixupload | ForEach-Object { Write-Host "MSIXUPLOAD: $($_.Name) ($($_.Length) bytes)" }
+          }
 
       - name: Prepare Store assets
         shell: pwsh
@@ -107,7 +113,7 @@ jobs:
           New-Item -Path store-upload -ItemType Directory -Force | Out-Null
           Copy-Item store\* store-upload\ -Recurse -Force
           Copy-Item msix\EyeCare.msixbundle store-upload\ -Force
-          Copy-Item msix\EyeCare.msixupload store-upload\ -Force
+          if (Test-Path msix\EyeCare.msixupload) { Copy-Item msix\EyeCare.msixupload store-upload\ -Force }
 
       - name: Upload Store bundle
         uses: actions/upload-artifact@v4
