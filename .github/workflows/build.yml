@@ -11,12 +11,22 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }}
+    name: Build ${{ matrix.name }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        platform: [ x64, x86, arm64 ]
+        include:
+          - name: x64
+            platform: x64
+            runtime: win-x64
+          - name: x86
+            platform: x86
+            runtime: win-x86
+          - name: arm64
+            platform: ARM64
+            runtime: win-arm64
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,29 +40,30 @@ jobs:
         shell: pwsh
         run: |
           dotnet --info
-          dotnet --list-sdks
           $sdkVersion = dotnet --version
           if (-not $sdkVersion.StartsWith("8.0.")) {
             Write-Error "Expected .NET 8 SDK, found $sdkVersion"
           }
 
-      - name: Restore dependencies
-        run: dotnet restore EyeCare/EyeCare.csproj
-
-      - name: Build Release
-        run: dotnet build EyeCare/EyeCare.csproj -c Release --no-restore
-
-      - name: Publish self-contained (${{ matrix.platform }})
+      - name: Restore ${{ matrix.name }}
         run: >
-          dotnet publish EyeCare/EyeCare.csproj -c Release
+          dotnet restore EyeCare/EyeCare.csproj
           -p:Platform=${{ matrix.platform }}
-          -r win-${{ matrix.platform }}
+          -r ${{ matrix.runtime }}
+
+      - name: Publish self-contained ${{ matrix.name }}
+        run: >
+          dotnet publish EyeCare/EyeCare.csproj
+          -c Release
+          -p:Platform=${{ matrix.platform }}
+          -r ${{ matrix.runtime }}
           --self-contained true
-          -o publish/${{ matrix.platform }}
+          --no-restore
+          -o publish/${{ matrix.name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EyeCare-win-${{ matrix.platform }}
-          path: publish/${{ matrix.platform }}/**
+          name: EyeCare-win-${{ matrix.name }}
+          path: publish/${{ matrix.name }}/**
           if-no-files-found: error
