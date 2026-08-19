@@ -1,0 +1,42 @@
+<Page
+    x:Class="EyeCare.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    NavigationCacheMode="Required">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel Spacing="4">
+                <TextBlock Text="常规设置" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="应用行为与关于信息" Style="{StaticResource SubtitleTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="16">
+                    <ToggleSwitch x:Name="AutoStartSwitch" Header="开机自启动" Toggled="AutoStartSwitch_Toggled"/>
+                    <ToggleSwitch x:Name="MinimizeTraySwitch" Header="关闭窗口时最小化到系统托盘" Toggled="MinimizeTraySwitch_Toggled"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="关于" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <TextBlock Text="护眼助手 EyeCare"/>
+                    <TextBlock Text="版本 1.0.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="基于 Windows App SDK (WinUI 3) 与 Fluent Design 构建"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="功能：蓝光过滤 · 亮度调节 · 休息提醒（20-20-20 法则）· 智能暂停"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

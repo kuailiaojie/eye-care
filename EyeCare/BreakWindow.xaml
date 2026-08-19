@@ -1,0 +1,30 @@
+<Window
+    x:Class="EyeCare.BreakWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#B3080A12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" MaxWidth="560">
+            <TextBlock x:Name="TitleText" Text="该休息一下啦 👀"
+                       FontSize="34" FontWeight="Bold" HorizontalAlignment="Center"
+                       Foreground="White"/>
+            <TextBlock x:Name="BreakTypeText" Text="短休息"
+                       FontSize="16" HorizontalAlignment="Center"
+                       Foreground="#CCFFFFFF"/>
+            <Border Background="#22FFFFFF" CornerRadius="12" Padding="24" Margin="0,8,0,0">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="给眼睛一个放松的机会：" Foreground="#E6FFFFFF" FontWeight="SemiBold"/>
+                    <TextBlock Text="• 眺望 6 米外的远处，持续 20 秒" Foreground="#CCFFFFFF"/>
+                    <TextBlock Text="• 轻轻转动眼球，上下左右各看 3 次" Foreground="#CCFFFFFF"/>
+                    <TextBlock Text="• 起来走动，接杯水，伸展一下身体" Foreground="#CCFFFFFF"/>
+                    <TextBlock Text="• 多眨眼，保持眼睛湿润" Foreground="#CCFFFFFF"/>
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="CountdownText" Text="00:20"
+                       FontSize="48" FontWeight="Bold" HorizontalAlignment="Center"
+                       Foreground="White"/>
+            <Button x:Name="SkipButton" Content="继续工作（跳过）"
+                    HorizontalAlignment="Center" Click="SkipButton_Click"
+                    Foreground="White" Background="#33FFFFFF" BorderThickness="0"/>
+        </StackPanel>
+    </Grid>
+</Window>

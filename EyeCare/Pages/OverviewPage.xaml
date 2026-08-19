@@ -1,0 +1,45 @@
+<Page
+    x:Class="EyeCare.Pages.OverviewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    NavigationCacheMode="Required">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="32" Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel Spacing="4">
+                <TextBlock Text="护眼助手" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="保护视力，缓解数字眼疲劳" Style="{StaticResource SubtitleTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+
+            <InfoBar IsOpen="True" Severity="Informational" IsClosable="True"
+                     Title="20-20-20 护眼法则"
+                     Message="每工作 20 分钟，远眺 20 英尺（约 6 米）外至少 20 秒，给眼睛一个放松的机会。"/>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="快捷开关" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <ToggleSwitch x:Name="BlueLightToggle" Header="蓝光过滤" Toggled="BlueLightToggle_Toggled"/>
+                    <ToggleSwitch x:Name="BrightnessToggle" Header="屏幕亮度调节" Toggled="BrightnessToggle_Toggled"/>
+                    <ToggleSwitch x:Name="BreakToggle" Header="休息提醒" Toggled="BreakToggle_Toggled"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="工作计时" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="WorkStatusText" Text="已工作 0 分钟" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <ProgressBar x:Name="WorkProgress" Minimum="0" Maximum="100" Value="0" Height="6"/>
+                    <Button x:Name="BreakNowButton" Content="💆 现在休息一下" HorizontalAlignment="Left" Click="BreakNowButton_Click" Style="{StaticResource AccentButtonStyle}"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

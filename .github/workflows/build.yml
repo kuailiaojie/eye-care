@@ -1,0 +1,45 @@
+name: Build EyeCare
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ x64, x86, arm64 ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore EyeCare/EyeCare.csproj -p:Platform=${{ matrix.platform }} -r win-${{ matrix.platform }}
+
+      - name: Build
+        run: dotnet build EyeCare/EyeCare.csproj -c Release -p:Platform=${{ matrix.platform }} -r win-${{ matrix.platform }} --no-restore
+
+      - name: Publish self-contained
+        run: >
+          dotnet publish EyeCare/EyeCare.csproj -c Release -p:Platform=${{ matrix.platform }}
+          -r win-${{ matrix.platform }} --self-contained true -o publish/${{ matrix.platform }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EyeCare-win-${{ matrix.platform }}
+          path: publish/${{ matrix.platform }}/**
+          if-no-files-found: error

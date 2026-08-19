@@ -1,0 +1,22 @@
+# .NET build output
+bin/
+obj/
+publish/
+*.user
+
+# Visual Studio
+.vs/
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+packages/
+
+# Python
+__pycache__/
+*.pyc
