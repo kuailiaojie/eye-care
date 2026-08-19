@@ -31,8 +31,9 @@ jobs:
         run: |
           dotnet --info
           dotnet --list-sdks
-          if (-not (Test-Path "$env:ProgramFiles\dotnet\packs\Microsoft.Windows.SDK.NET.Ref")) {
-            Write-Error "Windows SDK .NET reference pack was not installed"
+          $sdkVersion = dotnet --version
+          if (-not $sdkVersion.StartsWith("8.0.")) {
+            Write-Error "Expected .NET 8 SDK, found $sdkVersion"
           }
 
       - name: Restore dependencies
