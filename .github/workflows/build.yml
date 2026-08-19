@@ -26,6 +26,15 @@ jobs:
         with:
           dotnet-version: '8.0.402'
 
+      - name: Verify .NET SDK
+        shell: pwsh
+        run: |
+          dotnet --info
+          dotnet --list-sdks
+          if (-not (Test-Path "$env:ProgramFiles\dotnet\packs\Microsoft.Windows.SDK.NET.Ref")) {
+            Write-Error "Windows SDK .NET reference pack was not installed"
+          }
+
       - name: Restore dependencies
         run: dotnet restore EyeCare/EyeCare.csproj
 

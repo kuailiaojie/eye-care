@@ -16,8 +16,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Use the Windows reference pack supplied by the selected .NET SDK. -->
-    <WindowsSdkPackageVersion></WindowsSdkPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
