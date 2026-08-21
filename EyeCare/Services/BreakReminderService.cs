@@ -31,6 +31,12 @@ public class BreakReminderService : IDisposable
 
     public bool IsOnBreak => _onBreak;
 
+    /// <summary>本轮已工作秒数（供小组件/概览页显示）。</summary>
+    public int ElapsedWorkSeconds => _elapsedWorkSeconds;
+
+    /// <summary>当前休息剩余秒数。</summary>
+    public int RemainingBreakSeconds => Math.Max(0, _remainingBreakSeconds);
+
     public BreakReminderService(SettingsService settings)
     {
         _settings = settings;
@@ -132,7 +138,7 @@ public class BreakReminderService : IDisposable
     }
 
     /// <summary>检测用户是否离开电脑（无输入超过 60 秒）。</summary>
-    private static bool IsUserAway()
+    public static bool IsUserAway()
     {
         var lii = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
         if (!GetLastInputInfo(ref lii)) return false;

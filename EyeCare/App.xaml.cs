@@ -14,8 +14,9 @@ public partial class App : Application
     public static Services.TrayIconService TrayIcon { get; private set; } = null!;
     public static Services.StartupService Startup { get; private set; } = null!;
     public static Services.FullscreenPauseService FullscreenPause { get; private set; } = null!;
+    public static Services.DesktopWidgetService Widget { get; private set; } = null!;
 
-    private MainWindow? _window;
+    private static MainWindow? _window;
 
     /// <summary>UI 线程调度器（后台线程需要更新界面时使用）。</summary>
     public static Microsoft.UI.Dispatching.DispatcherQueue UiDispatcher { get; private set; } = null!;
@@ -25,6 +26,12 @@ public partial class App : Application
     {
         FilterOverlay.ApplySettings();
         GammaRamp.ApplySettings();
+    }
+
+    /// <summary>显示并激活主窗口（托盘 / 小组件双击时调用）。</summary>
+    public static void ShowMainWindow()
+    {
+        _window?.ShowAndActivate();
     }
 
     public App()
@@ -74,5 +81,9 @@ public partial class App : Application
 
         // 显示系统托盘图标
         TrayIcon.Show();
+
+        // 桌面小组件（托盘运行时常驻显示使用时长与状态）
+        Widget = new Services.DesktopWidgetService(Settings);
+        Widget.Start();
     }
 }

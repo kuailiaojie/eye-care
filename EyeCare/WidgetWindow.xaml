@@ -1,0 +1,64 @@
+<Window
+    x:Class="EyeCare.WidgetWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Grid x:Name="RootGrid"
+          Background="Transparent"
+          PointerPressed="RootGrid_PointerPressed"
+          DoubleTapped="RootGrid_DoubleTapped"
+          ToolTipService.ToolTip="双击打开护眼助手 · 拖动可移动位置">
+        <Border x:Name="CardBorder"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="14,12">
+            <StackPanel Spacing="8">
+                <!-- 标题行 -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Ellipse x:Name="StatusDot" Width="10" Height="10"
+                                 Fill="#4CC38A" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StatusText" Text="工作中"
+                                   FontWeight="SemiBold" FontSize="14"/>
+                    </StackPanel>
+                    <TextBlock x:Name="BlueLightText" Grid.Column="1"
+                               Text="蓝光过滤 开" FontSize="11"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- 使用时长 -->
+                <TextBlock x:Name="TimeText" Text="已工作 0 分钟"
+                           FontSize="20" FontWeight="Bold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+
+                <!-- 进度条 -->
+                <ProgressBar x:Name="WorkProgress" Height="4" Minimum="0" Maximum="100"
+                             Value="0" VerticalAlignment="Center"/>
+
+                <!-- 底部状态 -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="DetailText" Text="距离休息还有 20 分钟"
+                               FontSize="11"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Grid.Column="1" Text="🖱 拖动 / 双击" FontSize="10"
+                               Opacity="0.6"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

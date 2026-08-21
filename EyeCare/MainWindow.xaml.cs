@@ -73,7 +73,7 @@ public sealed partial class MainWindow : Window
         ContentFrame.Navigate(pageType);
     }
 
-    private void ShowAndActivate()
+    internal void ShowAndActivate()
     {
         AppWindow.Show();
         Activate();
@@ -112,6 +112,7 @@ public sealed partial class MainWindow : Window
         App.BreakReminder.Dispose();
         _breakWindow?.Close();
         App.TrayIcon?.Dispose();
+        App.Widget?.Dispose();
         Close();
     }
 }

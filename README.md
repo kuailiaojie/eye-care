@@ -16,6 +16,7 @@
 | 🎮 全屏自动暂停 | 检测到全屏游戏 / 视频 / 演示时自动暂停过滤与休息计时，退出全屏后恢复 |
 | 🔒 强制休息 | 休息时全屏覆盖不可跳过，确保真正放松 |
 | 🖥️ 系统托盘 | 驻留托盘，右键菜单快捷开关，关闭窗口最小化到托盘 |
+| 📊 桌面小组件 | 托盘运行时在桌面角落常驻显示使用时长与当前状态（工作中 / 休息中 / 暂停），可拖动、双击打开主界面 |
 | 🚀 开机自启 | 通过注册表 Run 键实现 |
 | 💾 多显示器 | 覆盖所有显示器，各自独立叠加 |
 
@@ -43,6 +44,7 @@ EyeCare/
 ├── App.xaml / App.xaml.cs           # 应用入口，初始化各服务
 ├── MainWindow.xaml(.cs)             # 主设置窗口（NavigationView）
 ├── BreakWindow.xaml(.cs)            # 全屏休息提醒窗口
+├── WidgetWindow.xaml(.cs)           # 桌面小组件窗口（使用时长与状态）
 ├── Models/
 │   └── AppSettings.cs               # 设置数据模型
 ├── Services/
@@ -52,6 +54,7 @@ EyeCare/
 │   ├── DayNightSchedule.cs          # 自动昼夜色温调度
 │   ├── FullscreenPauseService.cs    # 全屏程序检测与自动暂停
 │   ├── BreakReminderService.cs      # 休息提醒计时器
+│   ├── DesktopWidgetService.cs      # 桌面小组件管理（常驻显示/位置持久化）
 │   ├── TrayIconService.cs           # 系统托盘
 │   └── StartupService.cs            # 开机自启动
 ├── Native/

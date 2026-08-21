@@ -20,6 +20,9 @@
                 <StackPanel Spacing="16">
                     <ToggleSwitch x:Name="AutoStartSwitch" Header="开机自启动" Toggled="AutoStartSwitch_Toggled"/>
                     <ToggleSwitch x:Name="MinimizeTraySwitch" Header="关闭窗口时最小化到系统托盘" Toggled="MinimizeTraySwitch_Toggled"/>
+                    <ToggleSwitch x:Name="DesktopWidgetSwitch" Header="桌面小组件（显示使用时长与状态）"
+                                  OffContent="隐藏小组件" OnContent="托盘运行时在桌面角落显示"
+                                  Toggled="DesktopWidgetSwitch_Toggled"/>
                 </StackPanel>
             </Border>
 
@@ -29,7 +32,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="关于" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
                     <TextBlock Text="护眼助手 EyeCare"/>
-                    <TextBlock Text="版本 1.0.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="版本 1.1.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="基于 Windows App SDK (WinUI 3) 与 Fluent Design 构建"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>

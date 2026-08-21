@@ -79,6 +79,19 @@ public class AppSettings
     /// <summary>强制休息：休息时锁定屏幕。</summary>
     public bool EnforceBreak { get; set; } = false;
 
+    // ---------- 桌面小组件 ----------
+    /// <summary>是否在托盘运行时显示桌面小组件（使用时长与状态）。</summary>
+    public bool DesktopWidgetEnabled { get; set; } = true;
+
+    /// <summary>小组件位置是否已由用户拖动自定义（false 时使用默认右上角）。</summary>
+    public bool WidgetPositionCustomized { get; set; } = false;
+
+    /// <summary>小组件 X 坐标（虚拟屏幕坐标，仅 WidgetPositionCustomized 时生效）。</summary>
+    public int WidgetX { get; set; }
+
+    /// <summary>小组件 Y 坐标（虚拟屏幕坐标，仅 WidgetPositionCustomized 时生效）。</summary>
+    public int WidgetY { get; set; }
+
     // ---------- 通用 ----------
     /// <summary>开机自启动。</summary>
     public bool AutoStartEnabled { get; set; } = false;
