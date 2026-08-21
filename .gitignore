@@ -20,6 +20,15 @@ msix/
 *.nupkg
 packages/
 
+# Credentials and signing material
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+
 # Python
 __pycache__/
 *.pyc

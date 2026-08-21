@@ -24,12 +24,22 @@ public class TrayIconService : IDisposable
 
     private const uint WM_TRAYICON = NativeMethods.WM_TRAYICON;
     private const uint WM_COMMAND = 0x0111;
+    private const uint WM_NULL = 0x0000;
+    private const uint WM_DESTROY = 0x0002;
     private const uint WM_LBUTTONUP = 0x0202;
     private const uint WM_RBUTTONUP = 0x0205;
+    private const uint WM_CONTEXTMENU = 0x007B;
     private const uint WM_CLOSE = 0x0010;
+
+    private const uint NIM_ADD = 0x00000000;
+    private const uint NIM_DELETE = 0x00000002;
+    private const uint NIM_SETVERSION = 0x00000004;
+    private const uint NOTIFYICON_VERSION_4 = 4;
+    private const uint TPM_RIGHTBUTTON = 0x0002;
 
     // 保持对实例方法委托的引用，防止被 GC 回收导致函数指针失效
     private NativeMethods.WndProc _wndProcDelegate = null!;
+    private IntPtr _windowHandle;
 
     /// <summary>请求打开主界面。</summary>
     public event Action? OpenRequested;
@@ -75,6 +85,11 @@ public class TrayIconService : IDisposable
         var hwnd = NativeMethods.CreateWindowEx(0, className, className, 0, 0, 0, 0, 0,
             IntPtr.Zero, IntPtr.Zero, hInstance, IntPtr.Zero);
 
+        if (hwnd == IntPtr.Zero)
+            return;
+
+        _windowHandle = hwnd;
+
         IntPtr hIcon = LoadAppIcon();
         AddTrayIcon(hwnd, hIcon, "护眼助手");
 
@@ -88,7 +103,7 @@ public class TrayIconService : IDisposable
 
         RemoveTrayIcon(hwnd);
         if (hIcon != IntPtr.Zero) DestroyIcon(hIcon);
-        NativeMethods.DestroyWindow(hwnd);
+        _windowHandle = IntPtr.Zero;
         NativeMethods.UnregisterClass(className, hInstance);
     }
 
@@ -96,10 +111,12 @@ public class TrayIconService : IDisposable
     {
         if (msg == WM_TRAYICON)
         {
-            uint lp = (uint)lParam.ToInt64();
-            if (lp == WM_LBUTTONUP)
+            // 使用 NOTIFYICON_VERSION_4 后，lParam 的低位字才是鼠标消息，
+            // 高位字包含图标 ID；直接比较整个 lParam 会导致点击事件失效。
+            uint notification = (uint)lParam.ToInt64() & 0xFFFF;
+            if (notification == WM_LBUTTONUP)
                 OpenRequested?.Invoke();
-            else if (lp == WM_RBUTTONUP)
+            else if (notification is WM_RBUTTONUP or WM_CONTEXTMENU)
                 ShowContextMenu(hWnd);
             return IntPtr.Zero;
         }
@@ -113,6 +130,16 @@ public class TrayIconService : IDisposable
                 case CmdBreakNow: BreakNowRequested?.Invoke(); break;
                 case CmdExit: ExitRequested?.Invoke(); break;
             }
+            return IntPtr.Zero;
+        }
+        if (msg == WM_CLOSE)
+        {
+            NativeMethods.DestroyWindow(hWnd);
+            return IntPtr.Zero;
+        }
+        if (msg == WM_DESTROY)
+        {
+            PostQuitMessage(0);
             return IntPtr.Zero;
         }
         return NativeMethods.DefWindowProc(hWnd, msg, wParam, lParam);
@@ -133,7 +160,10 @@ public class TrayIconService : IDisposable
         // 获取当前光标位置弹出菜单
         GetCursorPos(out POINT pt);
         SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, 0x00000010 | 0x00000100, pt.x, pt.y, 0, hwnd, IntPtr.Zero); // TPM_RIGHTBUTTON | TPM_NONOTIFY
+        // 不使用 TPM_RETURNCMD：让菜单项通过 WM_COMMAND 到达 WndProc。
+        TrackPopupMenu(menu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, IntPtr.Zero);
+        // 这是 Windows 托盘菜单的约定，可确保菜单在失焦后正确关闭。
+        PostMessage(hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
         DestroyMenu(menu);
     }
 
@@ -163,7 +193,11 @@ public class TrayIconService : IDisposable
             hIcon = hIcon,
             szTip = tip
         };
-        Shell_NotifyIcon(0x00, ref nid); // NIM_ADD
+        Shell_NotifyIcon(NIM_ADD, ref nid);
+
+        // 与现代任务栏协商回调格式，确保鼠标事件在 Windows 10/11 上正确投递。
+        nid.uVersionOrTimeout = NOTIFYICON_VERSION_4;
+        Shell_NotifyIcon(NIM_SETVERSION, ref nid);
     }
 
     private static void RemoveTrayIcon(IntPtr hwnd)
@@ -174,7 +208,7 @@ public class TrayIconService : IDisposable
             hWnd = hwnd,
             uID = 1
         };
-        Shell_NotifyIcon(0x02, ref nid); // NIM_DELETE
+        Shell_NotifyIcon(NIM_DELETE, ref nid);
     }
 
     public void Notify(string title, string message)
@@ -186,6 +220,9 @@ public class TrayIconService : IDisposable
     public void Dispose()
     {
         _running = false;
+        var hwnd = _windowHandle;
+        if (hwnd != IntPtr.Zero)
+            PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
     // ================= P/Invoke =================
@@ -264,4 +301,10 @@ public class TrayIconService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern void PostQuitMessage(int nExitCode);
 }

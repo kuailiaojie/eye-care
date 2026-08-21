@@ -1,0 +1,109 @@
+name: Publish to Microsoft Store
+
+# Only publish artifacts produced from a successful push to the protected release branches.
+on:
+  workflow_run:
+    workflows: [Build MSIX for Store]
+    types: [completed]
+    branches: [main, master]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: microsoft-store-production
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    # Do not expose repository secrets to PRs or manual builds. A pending draft is
+    # deliberately not overwritten; resolve it in Partner Center before retrying.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')
+    runs-on: windows-latest
+    env:
+      PARTNER_CENTER_TENANT_ID: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+      PARTNER_CENTER_CLIENT_ID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+      PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+      PARTNER_CENTER_APPLICATION_ID: ${{ secrets.PARTNER_CENTER_APPLICATION_ID }}
+
+    steps:
+      - name: Download Store package from build
+        uses: actions/download-artifact@v4
+        with:
+          name: EyeCare-Store-Upload
+          path: store-upload
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Create and commit Partner Center submission
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          foreach ($name in 'PARTNER_CENTER_TENANT_ID', 'PARTNER_CENTER_CLIENT_ID', 'PARTNER_CENTER_CLIENT_SECRET', 'PARTNER_CENTER_APPLICATION_ID') {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing required GitHub Actions secret: $name"
+            }
+          }
+
+          $package = Get-ChildItem store-upload -Recurse -Filter 'EyeCare.msixbundle' | Select-Object -First 1
+          if (-not $package) { throw 'EyeCare.msixbundle was not found in the build artifact.' }
+
+          # The legacy Store submission API used for MSIX packages requires an Entra
+          # client-credentials token and a ZIP containing the package upload.
+          $token = Invoke-RestMethod -Method Post `
+            -Uri "https://login.microsoftonline.com/$env:PARTNER_CENTER_TENANT_ID/oauth2/token" `
+            -ContentType 'application/x-www-form-urlencoded' `
+            -Body @{
+              grant_type = 'client_credentials'
+              client_id = $env:PARTNER_CENTER_CLIENT_ID
+              client_secret = $env:PARTNER_CENTER_CLIENT_SECRET
+              resource = 'https://manage.devcenter.microsoft.com'
+            }
+          $headers = @{ Authorization = "Bearer $($token.access_token)" }
+          $baseUri = "https://manage.devcenter.microsoft.com/v1.0/my/applications/$env:PARTNER_CENTER_APPLICATION_ID"
+
+          $app = Invoke-RestMethod -Method Get -Uri $baseUri -Headers $headers
+          if ($null -ne $app.pendingApplicationSubmission) {
+            throw 'A pending Partner Center submission already exists. It was left untouched to avoid overwriting a manual submission.'
+          }
+
+          $submission = Invoke-RestMethod -Method Post -Uri "$baseUri/submissions" -Headers $headers
+          $submissionId = $submission.id
+          if ([string]::IsNullOrWhiteSpace($submissionId) -or [string]::IsNullOrWhiteSpace($submission.fileUploadUrl)) {
+            throw 'Partner Center did not return a submission ID and package upload URL.'
+          }
+
+          # Replace the cloned package set with this build's bundle.
+          $packages = @()
+          foreach ($existing in @($submission.applicationPackages)) {
+            $existing.fileStatus = 'PendingDelete'
+            $packages += $existing
+          }
+          $packages += [pscustomobject]@{
+            fileName = 'EyeCare.msixbundle'
+            fileStatus = 'PendingUpload'
+            minimumDirectXVersion = 'None'
+            minimumSystemRam = 'None'
+          }
+          $submission.applicationPackages = $packages
+
+          $uploadDirectory = Join-Path $env:RUNNER_TEMP 'store-submission'
+          New-Item -Path $uploadDirectory -ItemType Directory -Force | Out-Null
+          Copy-Item $package.FullName (Join-Path $uploadDirectory 'EyeCare.msixbundle') -Force
+          $archive = Join-Path $env:RUNNER_TEMP 'store-submission.zip'
+          Compress-Archive -Path (Join-Path $uploadDirectory 'EyeCare.msixbundle') -DestinationPath $archive -Force
+
+          Invoke-WebRequest -Method Put -Uri $submission.fileUploadUrl -InFile $archive `
+            -ContentType 'application/zip' -Headers @{ 'x-ms-blob-type' = 'BlockBlob' } | Out-Null
+
+          $body = $submission | ConvertTo-Json -Depth 100
+          Invoke-RestMethod -Method Put -Uri "$baseUri/submissions/$submissionId" -Headers $headers `
+            -ContentType 'application/json' -Body $body | Out-Null
+          Invoke-RestMethod -Method Post -Uri "$baseUri/submissions/$submissionId/commit" -Headers $headers | Out-Null
+
+          Write-Host "Partner Center submission $submissionId was committed for ingestion."

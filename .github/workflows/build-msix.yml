@@ -43,11 +43,18 @@ jobs:
 
       - name: Build MSIX
         run: |
+          # Store 不接受与已发布版本相同的包。使用日期和 GitHub 运行序号生成
+          # 单调递增的四段式版本号，且不修改源清单。
+          $build = ([DateTime]::UtcNow.Date - [DateTime]'2020-01-01').Days
+          $revision = [int64]$env:GITHUB_RUN_NUMBER % 65535
+          $packageVersion = "1.0.$build.$revision"
+          Write-Host "Building Store package version $packageVersion"
           msbuild EyeCare/EyeCare.csproj `
             /t:Build /p:Configuration=Release `
             /p:Platform=${{ matrix.platform }} `
             /p:RuntimeIdentifier=${{ matrix.rid }} `
             /p:WindowsPackageType=MSIX `
+            /p:AppxPackageVersion=$packageVersion `
             /p:AppxPackageOutput="$env:GITHUB_WORKSPACE\msix\EyeCare-${{ matrix.name }}.msix" `
             /p:AppxPackageSigningEnabled=False `
             /p:GenerateAppxPackageOnBuild=True `
