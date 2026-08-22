@@ -1,7 +1,6 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Windowing;
 using EyeCare.Pages;
 
 namespace EyeCare;
@@ -12,7 +11,6 @@ namespace EyeCare;
 public sealed partial class MainWindow : Window
 {
     private BreakWindow? _breakWindow;
-    private bool _isExiting;
 
     public MainWindow()
     {
@@ -33,25 +31,10 @@ public sealed partial class MainWindow : Window
         ContentFrame.Navigate(typeof(OverviewPage));
         NavView.SelectedItem = NavView.MenuItems[0];
 
-        // 订阅托盘事件（后台线程 → 调度到 UI 线程）
-        if (App.TrayIcon is not null)
-        {
-            App.TrayIcon.OpenRequested += () => DispatcherQueue.TryEnqueue(ShowAndActivate);
-            App.TrayIcon.ToggleBlueLightRequested += () => DispatcherQueue.TryEnqueue(OnToggleBlueLight);
-            App.TrayIcon.BreakNowRequested += () => DispatcherQueue.TryEnqueue(() => App.BreakReminder.StartBreakNow());
-            App.TrayIcon.ExitRequested += () => DispatcherQueue.TryEnqueue(OnExit);
-        }
-
-        // 订阅休息提醒事件（后台计时线程 → 调度到 UI 线程）
-        App.BreakReminder.BreakStarted += (bool longBreak) =>
-            DispatcherQueue.TryEnqueue(() => OnBreakStarted(longBreak));
-        App.BreakReminder.BreakFinished += () =>
-            DispatcherQueue.TryEnqueue(() => OnBreakFinished());
-
-        // 点击关闭按钮：最小化到托盘（可配置），托盘菜单「退出」才真正退出
+        // 点击关闭按钮：最小化到托盘（托盘菜单「退出」才真正退出）
         AppWindow.Closing += (_, args) =>
         {
-            if (App.Settings.Data.MinimizeToTray && !_isExiting)
+            if (App.Settings.Data.MinimizeToTray && !App.IsExiting)
             {
                 args.Cancel = true;
                 AppWindow.Hide();
@@ -79,15 +62,8 @@ public sealed partial class MainWindow : Window
         Activate();
     }
 
-    private void OnToggleBlueLight()
-    {
-        var s = App.Settings.Data;
-        s.BlueLightEnabled = !s.BlueLightEnabled;
-        App.Settings.Save();
-        App.ApplyFilters();
-    }
-
-    private void OnBreakStarted(bool longBreak)
+    /// <summary>展示休息窗口（由 App 在休息事件中调用）。</summary>
+    internal void ShowBreak(bool longBreak)
     {
         if (_breakWindow is null)
         {
@@ -98,21 +74,9 @@ public sealed partial class MainWindow : Window
         _breakWindow.Activate();
     }
 
-    private void OnBreakFinished()
+    /// <summary>隐藏休息窗口。</summary>
+    internal void HideBreak()
     {
         _breakWindow?.HideBreak();
-    }
-
-    private void OnExit()
-    {
-        _isExiting = true;
-        App.GammaRamp.Dispose();        // 恢复所有显示器原始 Gamma Ramp
-        App.FullscreenPause.Dispose();
-        App.FilterOverlay.Dispose();
-        App.BreakReminder.Dispose();
-        _breakWindow?.Close();
-        App.TrayIcon?.Dispose();
-        App.Widget?.Dispose();
-        Close();
     }
 }

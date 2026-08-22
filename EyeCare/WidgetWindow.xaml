@@ -11,49 +11,55 @@
           DoubleTapped="RootGrid_DoubleTapped"
           ToolTipService.ToolTip="双击打开护眼助手 · 拖动可移动位置">
         <Border x:Name="CardBorder"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                Background="{ThemeResource AcrylicInAppBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="12"
-                Padding="14,12">
+                CornerRadius="8"
+                Padding="16,12">
             <StackPanel Spacing="8">
-                <!-- 标题行 -->
+                <!-- 状态行：状态点 + 状态文字 + 蓝光过滤胶囊 -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <Ellipse x:Name="StatusDot" Width="10" Height="10"
-                                 Fill="#4CC38A" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Ellipse x:Name="StatusDot" Width="8" Height="8"
+                                 Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                 VerticalAlignment="Center"/>
                         <TextBlock x:Name="StatusText" Text="工作中"
-                                   FontWeight="SemiBold" FontSize="14"/>
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                     </StackPanel>
-                    <TextBlock x:Name="BlueLightText" Grid.Column="1"
-                               Text="蓝光过滤 开" FontSize="11"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               VerticalAlignment="Center"/>
+                    <Border Grid.Column="1"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="4" Padding="8,2" VerticalAlignment="Center">
+                        <TextBlock x:Name="BlueLightText" Text="蓝光过滤 开"
+                                   FontSize="10"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </Border>
                 </Grid>
 
                 <!-- 使用时长 -->
                 <TextBlock x:Name="TimeText" Text="已工作 0 分钟"
-                           FontSize="20" FontWeight="Bold"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           FontWeight="SemiBold"
                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
 
                 <!-- 进度条 -->
                 <ProgressBar x:Name="WorkProgress" Height="4" Minimum="0" Maximum="100"
                              Value="0" VerticalAlignment="Center"/>
 
-                <!-- 底部状态 -->
+                <!-- 底部：剩余时间 + 操作提示 -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="DetailText" Text="距离休息还有 20 分钟"
-                               FontSize="11"
+                               Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBlock Grid.Column="1" Text="🖱 拖动 / 双击" FontSize="10"
+                    <TextBlock Grid.Column="1" Text="🖱 拖动 · 双击打开" FontSize="10"
                                Opacity="0.6"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                VerticalAlignment="Center"/>

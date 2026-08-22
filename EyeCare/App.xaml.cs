@@ -17,9 +17,13 @@ public partial class App : Application
     public static Services.DesktopWidgetService Widget { get; private set; } = null!;
 
     private static MainWindow? _window;
+    private static bool _isExiting;
 
     /// <summary>UI 线程调度器（后台线程需要更新界面时使用）。</summary>
     public static Microsoft.UI.Dispatching.DispatcherQueue UiDispatcher { get; private set; } = null!;
+
+    /// <summary>是否正在退出（托盘「退出」触发后，其余入口不再响应）。</summary>
+    public static bool IsExiting => _isExiting;
 
     /// <summary>同时刷新覆盖层与 Gamma 校正（所有过滤设置变更统一走这里）。</summary>
     public static void ApplyFilters()
@@ -28,10 +32,52 @@ public partial class App : Application
         GammaRamp.ApplySettings();
     }
 
-    /// <summary>显示并激活主窗口（托盘 / 小组件双击时调用）。</summary>
+    /// <summary>显示并激活主窗口（托盘 / 小组件双击时调用）。
+    /// 主窗口已被关闭（如关闭到托盘被关闭）时自动重建，避免在已销毁窗口上调用导致崩溃。</summary>
     public static void ShowMainWindow()
     {
-        _window?.ShowAndActivate();
+        if (_isExiting) return;
+        if (_window is null)
+        {
+            _window = new MainWindow();
+            _window.Activate();
+        }
+        else
+        {
+            _window.ShowAndActivate();
+        }
+    }
+
+    /// <summary>从托盘切换蓝光过滤。</summary>
+    private static void ToggleBlueLightFromTray()
+    {
+        var s = Settings.Data;
+        s.BlueLightEnabled = !s.BlueLightEnabled;
+        Settings.Save();
+        ApplyFilters();
+    }
+
+    private static void ShowBreakWindow(bool longBreak)
+    {
+        // 主窗口被关闭时先重建，再展示休息窗口
+        if (_window is null) ShowMainWindow();
+        _window?.ShowBreak(longBreak);
+    }
+
+    private static void HideBreakWindow() => _window?.HideBreak();
+
+    /// <summary>退出应用（托盘菜单「退出」）。</summary>
+    public static void ExitApp()
+    {
+        if (_isExiting) return;
+        _isExiting = true;
+        GammaRamp.Dispose();        // 恢复所有显示器原始 Gamma Ramp
+        FullscreenPause.Dispose();
+        FilterOverlay.Dispose();
+        BreakReminder.Dispose();
+        TrayIcon?.Dispose();
+        Widget?.Dispose();
+        _window?.Close();
     }
 
     public App()
@@ -60,7 +106,7 @@ public partial class App : Application
             GammaRamp.ApplySettings();
         });
 
-        // 先创建托盘服务，使 MainWindow 构造函数能订阅到托盘事件
+        // 先创建托盘服务，供后续订阅
         TrayIcon = new Services.TrayIconService(Settings);
 
         // 应用设置到服务
@@ -75,9 +121,21 @@ public partial class App : Application
         // 启动全屏检测
         FullscreenPause.Start();
 
-        // 创建主窗口（构造函数中订阅托盘与休息事件）
+        // 创建主窗口
         _window = new MainWindow();
         _window.Activate();
+        // 主窗口被关闭（关闭到托盘被关闭时）置空引用，托盘再次打开时自动重建
+        _window.Closed += (_, _) => { if (!_isExiting) _window = null; };
+
+        // 托盘事件只订阅一次（主窗口可安全重建，不会重复订阅导致多次触发）
+        TrayIcon.OpenRequested += () => UiDispatcher.TryEnqueue(ShowMainWindow);
+        TrayIcon.ToggleBlueLightRequested += () => UiDispatcher.TryEnqueue(ToggleBlueLightFromTray);
+        TrayIcon.BreakNowRequested += () => UiDispatcher.TryEnqueue(() => BreakReminder.StartBreakNow());
+        TrayIcon.ExitRequested += () => UiDispatcher.TryEnqueue(ExitApp);
+
+        // 休息提醒事件（后台计时线程 → 调度到 UI 线程）
+        BreakReminder.BreakStarted += (bool longBreak) => UiDispatcher.TryEnqueue(() => ShowBreakWindow(longBreak));
+        BreakReminder.BreakFinished += () => UiDispatcher.TryEnqueue(HideBreakWindow);
 
         // 显示系统托盘图标
         TrayIcon.Show();

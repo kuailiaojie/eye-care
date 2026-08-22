@@ -1,9 +1,5 @@
 using System;
 using System.Threading;
-using Microsoft.UI;
-using Microsoft.UI.Windowing;
-using WinRT.Interop;
-using Windows.Graphics;
 
 namespace EyeCare.Services;
 
@@ -42,8 +38,8 @@ public class DesktopWidgetService : IDisposable
         {
             if (_window is null)
             {
+                // 位置由 WidgetWindow 在 Loaded 后自行恢复（默认右上角或自定义位置）
                 _window = new WidgetWindow();
-                RestorePosition();
                 _window.Activate();
                 _visible = true;
             }
@@ -58,29 +54,6 @@ public class DesktopWidgetService : IDisposable
         {
             _window.AppWindow.Hide();
             _visible = false;
-        }
-    }
-
-    /// <summary>按设置恢复窗口位置；未自定义时默认主屏工作区右上角。</summary>
-    private void RestorePosition()
-    {
-        var s = _settings.Data;
-        if (s.WidgetPositionCustomized)
-        {
-            _window!.MoveTo(s.WidgetX, s.WidgetY);
-            return;
-        }
-
-        // 默认位置：主显示器工作区右上角，留 24px 边距
-        var hwnd = WindowNative.GetWindowHandle(_window!);
-        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-        var area = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
-        if (area is not null)
-        {
-            var wa = area.WorkArea;
-            int x = wa.X + wa.Width - 280 - 24;
-            int y = wa.Y + 24;
-            _window!.MoveTo(Math.Max(wa.X, x), y);
         }
     }
 

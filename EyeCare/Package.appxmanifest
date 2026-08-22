@@ -21,7 +21,7 @@
   <Identity
     Name="DE3C23BA.666688A021C8"
     Publisher="CN=AAC205F6-41D2-4FAD-8218-4E47E5D84363"
-    Version="1.1.0.0" />
+    Version="1.1.1.0" />
 
   <Properties>
     <DisplayName>护眼助手</DisplayName>
