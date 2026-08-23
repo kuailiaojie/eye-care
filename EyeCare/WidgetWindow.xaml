@@ -11,7 +11,7 @@
           DoubleTapped="RootGrid_DoubleTapped"
           ToolTipService.ToolTip="双击打开护眼助手 · 拖动可移动位置">
         <Border x:Name="CardBorder"
-                Background="{ThemeResource AcrylicInAppBrush}"
+                Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8"

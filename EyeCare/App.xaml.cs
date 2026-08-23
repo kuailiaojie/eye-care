@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Microsoft.UI.Xaml;
 
 namespace EyeCare;
@@ -7,6 +9,33 @@ namespace EyeCare;
 /// </summary>
 public partial class App : Application
 {
+    // ---- 启动崩溃诊断（正式版可保留，仅崩溃时写文件）----
+    private static readonly string CrashLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "EyeCare", "crash.log");
+
+    /// <summary>启动阶段标记：无论是否抛出托管异常，最后一条标记即为崩溃点。</summary>
+    internal static void Trace(string stage)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CrashLogPath)!);
+            File.AppendAllText(CrashLogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {stage}\n");
+        }
+        catch { /* 日志失败不影响运行 */ }
+    }
+
+    /// <summary>记录异常。</summary>
+    internal static void LogCrash(string stage, Exception ex)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CrashLogPath)!);
+            File.AppendAllText(CrashLogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {stage}: {ex}\n\n");
+        }
+        catch { }
+    }
+
     public static Services.SettingsService Settings { get; private set; } = null!;
     public static Services.FilterOverlayService FilterOverlay { get; private set; } = null!;
     public static Services.GammaRampService GammaRamp { get; private set; } = null!;
@@ -82,11 +111,33 @@ public partial class App : Application
 
     public App()
     {
+        // 全局异常钩子：任何未处理异常都先落盘，便于定位崩溃
+        UnhandledException += (_, e) => LogCrash("Application.UnhandledException", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            LogCrash("AppDomain.UnhandledException",
+                e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString() ?? "unknown"));
+        Trace("App ctor begin");
         InitializeComponent();
+        Trace("App ctor end");
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        try
+        {
+            OnLaunchedCore(args);
+            Trace("OnLaunched done");
+        }
+        catch (Exception ex)
+        {
+            LogCrash("OnLaunched", ex);
+            throw;
+        }
+    }
+
+    private void OnLaunchedCore(LaunchActivatedEventArgs args)
+    {
+        Trace("OnLaunched begin");
         UiDispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
         // 初始化服务
@@ -98,6 +149,7 @@ public partial class App : Application
         BreakReminder = new Services.BreakReminderService(Settings);
         Startup = new Services.StartupService();
         FullscreenPause = new Services.FullscreenPauseService();
+        Trace("services created");
 
         // 全屏状态变化时刷新过滤层与 Gamma 校正
         FullscreenPause.StateChanged += () => UiDispatcher.TryEnqueue(() =>
@@ -120,10 +172,13 @@ public partial class App : Application
 
         // 启动全屏检测
         FullscreenPause.Start();
+        Trace("services started");
 
         // 创建主窗口
         _window = new MainWindow();
+        Trace("MainWindow created");
         _window.Activate();
+        Trace("MainWindow activated");
         // 主窗口被关闭（关闭到托盘被关闭时）置空引用，托盘再次打开时自动重建
         _window.Closed += (_, _) => { if (!_isExiting) _window = null; };
 
@@ -139,9 +194,11 @@ public partial class App : Application
 
         // 显示系统托盘图标
         TrayIcon.Show();
+        Trace("TrayIcon shown");
 
         // 桌面小组件（托盘运行时常驻显示使用时长与状态）
         Widget = new Services.DesktopWidgetService(Settings);
         Widget.Start();
+        Trace("Widget started");
     }
 }

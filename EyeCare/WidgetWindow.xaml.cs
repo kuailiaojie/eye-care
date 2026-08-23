@@ -40,52 +40,74 @@ public sealed partial class WidgetWindow : Window
 
     public WidgetWindow()
     {
-        InitializeComponent();
-
-        // 无边框、不可调整大小、置顶、不出现在 Alt+Tab
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        try
         {
-            presenter.SetBorderAndTitleBar(false, false);
-            presenter.IsResizable = false;
-            presenter.IsMaximizable = false;
-            presenter.IsMinimizable = false;
-            presenter.IsAlwaysOnTop = true;
+            InitializeComponent();
+            App.Trace("WidgetWindow: XAML loaded");
+
+            // 无边框、不可调整大小、置顶、不出现在 Alt+Tab
+            if (AppWindow.Presenter is OverlappedPresenter presenter)
+            {
+                presenter.SetBorderAndTitleBar(false, false);
+                presenter.IsResizable = false;
+                presenter.IsMaximizable = false;
+                presenter.IsMinimizable = false;
+                presenter.IsAlwaysOnTop = true;
+            }
+
+            // 按当前 DPI 换算初始尺寸（AppWindow 坐标均为物理像素），Loaded 后再按内容精调
+            var hwnd = WindowNative.GetWindowHandle(this);
+            double scale = GetDpiForWindow(hwnd) / 96.0;
+            AppWindow.Resize(new SizeInt32(
+                (int)Math.Round(ContentWidthDip * scale),
+                (int)Math.Round(140 * scale)));
+            AppWindow.IsShownInSwitchers = false;
+
+            // 工具窗口样式：不显示在任务栏
+            long exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, (IntPtr)(exStyle | WS_EX_TOOLWINDOW));
+            App.Trace("WidgetWindow: window styled");
+
+            // 拖动结束后（防抖）持久化位置
+            AppWindow.Changed += OnAppWindowChanged;
+            Closed += (_, _) => _saveTimer?.Stop();
+            _saveTimer = DispatcherQueue.CreateTimer();
+            _saveTimer.Interval = TimeSpan.FromMilliseconds(500);
+            _saveTimer.Tick += (_, _) =>
+            {
+                _saveTimer.Stop();
+                var s = App.Settings.Data;
+                s.WidgetPositionCustomized = true;
+                s.WidgetX = _pendingX;
+                s.WidgetY = _pendingY;
+                App.Settings.Save();
+            };
+
+            // 首次显示与 DPI 变化时：窗口尺寸贴合内容 + 恢复位置
+            RootGrid.Loaded += (_, _) =>
+            {
+                try
+                {
+                    FitToContent();
+                    RestorePosition();
+                }
+                catch (Exception ex)
+                {
+                    App.LogCrash("WidgetWindow.Loaded", ex);
+                }
+            };
+            RootGrid.SizeChanged += (_, _) =>
+            {
+                try { FitToContent(); }
+                catch (Exception ex) { App.LogCrash("WidgetWindow.SizeChanged", ex); }
+            };
+            App.Trace("WidgetWindow: ctor done");
         }
-
-        // 按当前 DPI 换算初始尺寸（AppWindow 坐标均为物理像素），Loaded 后再按内容精调
-        var hwnd = WindowNative.GetWindowHandle(this);
-        double scale = GetDpiForWindow(hwnd) / 96.0;
-        AppWindow.Resize(new SizeInt32(
-            (int)Math.Round(ContentWidthDip * scale),
-            (int)Math.Round(140 * scale)));
-        AppWindow.IsShownInSwitchers = false;
-
-        // 工具窗口样式：不显示在任务栏
-        long exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-        SetWindowLongPtr(hwnd, GWL_EXSTYLE, (IntPtr)(exStyle | WS_EX_TOOLWINDOW));
-
-        // 拖动结束后（防抖）持久化位置
-        AppWindow.Changed += OnAppWindowChanged;
-        Closed += (_, _) => _saveTimer?.Stop();
-        _saveTimer = DispatcherQueue.CreateTimer();
-        _saveTimer.Interval = TimeSpan.FromMilliseconds(500);
-        _saveTimer.Tick += (_, _) =>
+        catch (Exception ex)
         {
-            _saveTimer.Stop();
-            var s = App.Settings.Data;
-            s.WidgetPositionCustomized = true;
-            s.WidgetX = _pendingX;
-            s.WidgetY = _pendingY;
-            App.Settings.Save();
-        };
-
-        // 首次显示与 DPI 变化时：窗口尺寸贴合内容 + 恢复位置
-        RootGrid.Loaded += (_, _) =>
-        {
-            FitToContent();
-            RestorePosition();
-        };
-        RootGrid.SizeChanged += (_, _) => FitToContent();
+            App.LogCrash("WidgetWindow ctor", ex);
+            throw;
+        }
     }
 
     /// <summary>移动到屏幕指定位置（虚拟屏幕坐标，物理像素）。</summary>
@@ -237,12 +259,16 @@ public sealed partial class WidgetWindow : Window
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 
-    /// <summary>解析 Fluent 语义主题画刷；缺失时回退内置颜色。</summary>
+    /// <summary>解析 Fluent 语义主题画刷；缺失或异常时回退内置颜色。</summary>
     private static Brush ResolveThemeBrush(string key, byte r, byte g, byte b)
     {
-        if (Application.Current?.Resources is { } resources &&
-            resources.TryGetValue(key, out object? value) && value is Brush brush)
-            return brush;
+        try
+        {
+            if (Application.Current?.Resources is { } resources &&
+                resources.TryGetValue(key, out object? value) && value is Brush brush)
+                return brush;
+        }
+        catch { /* 资源解析失败不影响运行 */ }
         return new SolidColorBrush(Windows.UI.Color.FromArgb(255, r, g, b));
     }
 
