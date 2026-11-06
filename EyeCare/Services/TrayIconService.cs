@@ -19,9 +19,13 @@ public class TrayIconService : IDisposable
     // 菜单命令 ID
     private const int CmdOpen = 1;
     private const int CmdToggleBlue = 2;
-    private const int CmdBreakNow = 3;
-    private const int CmdExit = 4;
+    private const int CmdToggleBrightness = 3;
+    private const int CmdToggleWidget = 4;
+    private const int CmdBreakNow = 5;
+    private const int CmdExit = 6;
+    private const int CmdToggleRuler = 7;
 
+    private const uint WM_DISPLAYCHANGE = 0x007E;
     private const uint WM_TRAYICON = NativeMethods.WM_TRAYICON;
     private const uint WM_COMMAND = 0x0111;
     private const uint WM_NULL = 0x0000;
@@ -48,10 +52,18 @@ public class TrayIconService : IDisposable
     public event Action? OpenRequested;
     /// <summary>切换蓝光过滤状态。</summary>
     public event Action? ToggleBlueLightRequested;
+    /// <summary>切换屏幕变暗亮度调节。</summary>
+    public event Action? ToggleBrightnessRequested;
+    /// <summary>切换桌面小组件。</summary>
+    public event Action? ToggleWidgetRequested;
+    /// <summary>切换阅读聚焦标尺。</summary>
+    public event Action? ToggleRulerRequested;
     /// <summary>立即休息。</summary>
     public event Action? BreakNowRequested;
     /// <summary>退出应用。</summary>
     public event Action? ExitRequested;
+    /// <summary>系统显示器拓扑或分辨率变化。</summary>
+    public event Action? DisplayChangeDetected;
 
     public TrayIconService(SettingsService settings)
     {
@@ -125,6 +137,11 @@ public class TrayIconService : IDisposable
                     ShowContextMenu(hWnd);
                 return IntPtr.Zero;
             }
+            if (msg == WM_DISPLAYCHANGE)
+            {
+                DisplayChangeDetected?.Invoke();
+                return IntPtr.Zero;
+            }
             if (msg == WM_COMMAND)
             {
                 int cmd = (int)((long)wParam & 0xFFFF);
@@ -132,6 +149,9 @@ public class TrayIconService : IDisposable
                 {
                     case CmdOpen: OpenRequested?.Invoke(); break;
                     case CmdToggleBlue: ToggleBlueLightRequested?.Invoke(); break;
+                    case CmdToggleBrightness: ToggleBrightnessRequested?.Invoke(); break;
+                    case CmdToggleWidget: ToggleWidgetRequested?.Invoke(); break;
+                    case CmdToggleRuler: ToggleRulerRequested?.Invoke(); break;
                     case CmdBreakNow: BreakNowRequested?.Invoke(); break;
                     case CmdExit: ExitRequested?.Invoke(); break;
                 }
@@ -169,6 +189,16 @@ public class TrayIconService : IDisposable
 
             uint blueFlag = _settings.Data.BlueLightEnabled ? 0x00000008u : 0u; // MF_CHECKED
             AppendMenu(menu, blueFlag, new UIntPtr(CmdToggleBlue), "蓝光过滤");
+
+            uint brightFlag = _settings.Data.BrightnessEnabled ? 0x00000008u : 0u;
+            AppendMenu(menu, brightFlag, new UIntPtr(CmdToggleBrightness), "屏幕变暗调节");
+
+            uint widgetFlag = _settings.Data.DesktopWidgetEnabled ? 0x00000008u : 0u;
+            AppendMenu(menu, widgetFlag, new UIntPtr(CmdToggleWidget), "桌面小组件");
+
+            uint rulerFlag = _settings.Data.ReadingRulerEnabled ? 0x00000008u : 0u;
+            AppendMenu(menu, rulerFlag, new UIntPtr(CmdToggleRuler), "阅读聚焦标尺 (Alt+R)");
+
             AppendMenu(menu, 0x00000000, new UIntPtr(CmdBreakNow), "现在休息一下");
             AppendMenu(menu, 0x00000800, UIntPtr.Zero, null);
             AppendMenu(menu, 0x00000000, new UIntPtr(CmdExit), "退出");
@@ -187,6 +217,9 @@ public class TrayIconService : IDisposable
             {
                 case CmdOpen: OpenRequested?.Invoke(); break;
                 case CmdToggleBlue: ToggleBlueLightRequested?.Invoke(); break;
+                case CmdToggleBrightness: ToggleBrightnessRequested?.Invoke(); break;
+                case CmdToggleWidget: ToggleWidgetRequested?.Invoke(); break;
+                case CmdToggleRuler: ToggleRulerRequested?.Invoke(); break;
                 case CmdBreakNow: BreakNowRequested?.Invoke(); break;
                 case CmdExit: ExitRequested?.Invoke(); break;
             }
@@ -247,8 +280,48 @@ public class TrayIconService : IDisposable
 
     public void Notify(string title, string message)
     {
-        // 简单的气球提示（NIF_INFO）
-        // 可通过 hwnd 定位；为简洁此处省略，后续可扩展。
+        var hwnd = _windowHandle;
+        if (hwnd == IntPtr.Zero) return;
+
+        try
+        {
+            var nid = new NOTIFYICONDATA
+            {
+                cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATA>(),
+                hWnd = hwnd,
+                uID = 1,
+                uFlags = 0x10, // NIF_INFO
+                szInfoTitle = title ?? "",
+                szInfo = message ?? "",
+                dwInfoFlags = 0x01 // NIIF_INFO
+            };
+            Shell_NotifyIcon(0x01, ref nid); // NIM_MODIFY
+        }
+        catch
+        {
+            // 忽略通知异常
+        }
+    }
+
+    /// <summary>更新托盘图标悬停提示文本（例如动态显示剩余休息时间）。</summary>
+    public void UpdateTooltip(string tip)
+    {
+        var hwnd = _windowHandle;
+        if (hwnd == IntPtr.Zero) return;
+
+        try
+        {
+            var nid = new NOTIFYICONDATA
+            {
+                cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATA>(),
+                hWnd = hwnd,
+                uID = 1,
+                uFlags = 0x04, // NIF_TIP
+                szTip = tip
+            };
+            Shell_NotifyIcon(0x01, ref nid); // NIM_MODIFY
+        }
+        catch { }
     }
 
     public void Dispose()

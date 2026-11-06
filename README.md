@@ -8,17 +8,24 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🌙 蓝光过滤 | **两种实现方式**：叠加层（兼容所有显示器与 HDR）或系统级 **Gamma 校正**（f.lux / LightBulb 同款，直接压缩蓝光通道，全屏游戏同样生效） |
-| 🔦 亮度调节 | 通过覆盖层降低屏幕亮度，1% 精度调节，避免刺眼；附 PWM 频闪消除建议 |
-| 🌗 自动昼夜色温 | 白天偏白（默认 6500K）、夜间偏暖（默认 3500K），日出日落时段平滑过渡，保护褪黑素分泌 |
-| ⏰ 休息提醒 | 支持 20-20-20 护眼法则与自定义间隔，短休息 / 长休息交替 |
+| 🌙 蓝光过滤 | **双引擎架构**：分层透明窗口叠加（兼容所有显示器与 HDR）或系统级 **Gamma 校正**（保留 ICC 出厂校色曲线，全屏独占游戏同样生效） |
+| 🎛️ 场景预设 | 办公 (5000K/90%)、阅读 (4200K/80%)、助眠 (3200K/65%)、原色 (6500K/100%) 四大场景一键切换 |
+| 🌊 平滑渐变 | 400ms 缓动插值过渡引擎，切换预设、开关、全屏自动恢复时告别突兀闪烁 |
+| ⌨️ 全局快捷键 | `Alt+End` 开关蓝光 · `Alt+PgUp/PgDn` 调亮度 · `Alt+B` 立即休息 · `Alt+R` 阅读视线尺 |
+| 🛡️ 智能避让 | 监测 Photoshop、Figma、Premiere、PotPlayer 等设计与调色白名单程序，前台激活时自动平滑淡出滤镜 |
+| 💡 硬件背光 | 支持 **DDC/CI 物理硬件显示器背光控制**，节能保真，硬件不支持时平滑接力软件遮罩 |
+| 🔦 亮度调节 | 1% 精度屏幕变暗调节，避免刺眼；附 PWM 频闪消除建议 |
+| 🌗 自动昼夜色温 | 白天自然光（6500K）、夜间暖黄光（3500K），随日落平滑过渡，保护褪黑素分泌 |
+| ⏰ 休息提醒 | 20-20-20 护眼法则与自定义间隔；支持提前 30 秒温和微提示浮窗与一键推迟 5 分钟 (Snooze) |
+| 🧘 引导式休息 | 4-7-8 呼吸光圈动效、5 秒防冲动跳过锁定、副屏全黑磨砂同步遮蔽、轻柔提示音 |
+| 📊 用眼健康统计 | 本地纯 JSON 记录每日屏幕使用时长、蓝光保护时长、休息达标数、打卡天数与近 7 天趋势柱状图 |
+| 🛠️ 护眼工具集 | **阅读聚焦视线标尺**（跟随光标水平行高亮，四周变暗）与 **眨眼/坐姿定时微气泡**（3 秒淡出提示） |
 | 🧠 智能暂停 | 检测到用户离开电脑（无输入 60 秒）时自动暂停计时 |
-| 🎮 全屏自动暂停 | 检测到全屏游戏 / 视频 / 演示时自动暂停过滤与休息计时，退出全屏后恢复 |
-| 🔒 强制休息 | 休息时全屏覆盖不可跳过，确保真正放松 |
-| 🖥️ 系统托盘 | 驻留托盘，右键菜单快捷开关，关闭窗口最小化到托盘 |
-| 📊 桌面小组件 | 托盘运行时在桌面角落常驻显示使用时长与当前状态（工作中 / 休息中 / 暂停），可拖动、双击打开主界面 |
-| 🚀 开机自启 | 通过注册表 Run 键实现 |
-| 💾 多显示器 | 覆盖所有显示器，各自独立叠加 |
+| 🎮 全屏自动暂停 | 基于 `SHQueryUserNotificationState` 原生 Direct3D 全屏与演示检测，精准排除桌面与自身窗口干扰 |
+| 🖥️ 系统托盘 | 驻留托盘，动态 Tooltip 提示剩余分钟数，支持气球通知与丰富右键菜单 |
+| 📱 桌面小组件 | 常驻显示使用时长与状态，支持悬停微操作栏、紧凑迷你胶囊模式与屏幕边界防丢失回正 |
+| 🚀 规范开机自启 | 打包模式优先使用商店规范 `uap5:StartupTask`，非打包模式平滑降级注册表 |
+| 🔒 单实例保障 | `AppInstance` 单实例锁，杜绝多开重影与 Gamma 互相污染残留 |
 
 ### 20-20-20 护眼法则
 
@@ -41,29 +48,37 @@
 
 ```
 EyeCare/
-├── App.xaml / App.xaml.cs           # 应用入口，初始化各服务
+├── App.xaml / App.xaml.cs           # 应用入口，服务编排与生命周期管理
 ├── MainWindow.xaml(.cs)             # 主设置窗口（NavigationView）
-├── BreakWindow.xaml(.cs)            # 全屏休息提醒窗口
-├── WidgetWindow.xaml(.cs)           # 桌面小组件窗口（使用时长与状态）
+├── BreakWindow.xaml(.cs)            # 主屏引导式休息窗口（4-7-8 呼吸光圈）
+├── BreakCompanionWindow.xaml(.cs)   # 副屏沉浸遮蔽窗口（多显示器完全覆盖）
+├── PreBreakToastWindow.xaml(.cs)    # 休息前 30 秒温和微提示浮窗（支持推迟 5 分钟）
+├── WidgetWindow.xaml(.cs)           # 桌面小组件窗口（悬停操作栏 / 紧凑胶囊模式）
+├── ReadingRulerWindow.xaml(.cs)     # 阅读聚焦视线标尺窗口（Alt+R 全屏聚焦）
+├── MicroNudgeWindow.xaml(.cs)       # 眨眼润眼与坐姿定时微气泡（3 秒自动隐退）
 ├── Models/
-│   └── AppSettings.cs               # 设置数据模型
+│   └── AppSettings.cs               # 设置数据模型（预设/快捷键/避让/统计/小工具）
 ├── Services/
-│   ├── SettingsService.cs           # 设置持久化（JSON）
-│   ├── FilterOverlayService.cs      # 蓝光过滤 + 亮度覆盖层
-│   ├── GammaRampService.cs          # 系统级 Gamma 校正（f.lux 式）
+│   ├── SettingsService.cs           # 设置持久化（带 400ms 磁盘防抖）
+│   ├── FilterOverlayService.cs      # 蓝光过滤 + 亮度覆盖层（平滑渐变）
+│   ├── GammaRampService.cs          # 系统级 Gamma 校正（保留 ICC 校准曲线）
 │   ├── DayNightSchedule.cs          # 自动昼夜色温调度
-│   ├── FullscreenPauseService.cs    # 全屏程序检测与自动暂停
-│   ├── BreakReminderService.cs      # 休息提醒计时器
-│   ├── DesktopWidgetService.cs      # 桌面小组件管理（常驻显示/位置持久化）
-│   ├── TrayIconService.cs           # 系统托盘
-│   └── StartupService.cs            # 开机自启动
+│   ├── FullscreenPauseService.cs    # 原生全屏程序与演示模式检测
+│   ├── BreakReminderService.cs      # 休息提醒与智能离开检测
+│   ├── DesktopWidgetService.cs      # 桌面小组件管理（常驻显示/越界自动回正）
+│   ├── EyeHealthStatsStore.cs       # 本地健康用眼统计存储（每日用眼/打卡天数）
+│   ├── GlobalHotkeyService.cs       # 系统全局快捷键服务（Alt+End/PgUp/PgDn/B/R）
+│   ├── AppBypassService.cs          # 设计与调色软件前台自动避让
+│   ├── DdcCiService.cs              # DDC/CI 物理显示器硬件背光调节
+│   ├── TrayIconService.cs           # 系统托盘（动态 Tooltip / 显示器热插拔监听）
+│   └── StartupService.cs            # MSIX 规范化自启动（uap5:StartupTask / 注册表）
 ├── Native/
-│   └── NativeMethods.cs             # Win32 P/Invoke 声明
+│   └── NativeMethods.cs             # Win32 P/Invoke 声明 (D3D/DDC-CI/HotKey/Process)
 ├── Pages/                           # 四个设置页面
-│   ├── OverviewPage(.xaml/.cs)      # 概览
-│   ├── FilterPage                   # 蓝光与亮度
-│   ├── BreakPage                    # 休息提醒
-│   └── SettingsPage                 # 常规设置
+│   ├── OverviewPage(.xaml/.cs)      # 概览（预设卡片 + 今日报告 + 7 天趋势图）
+│   ├── FilterPage                   # 蓝光与亮度（滑块实时预览 + 场景预设）
+│   ├── BreakPage                    # 休息提醒（20-20-20、微预告、防冲动跳过）
+│   └── SettingsPage                 # 常规设置（开机自启动/快捷键/避让/急救）
 └── Assets/eye.ico                   # 应用图标
 ```
 

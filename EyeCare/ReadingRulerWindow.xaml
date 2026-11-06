@@ -1,0 +1,22 @@
+<Window
+    x:Class="EyeCare.ReadingRulerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="EyeCareReadingRuler">
+
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <!-- 上方半透明深色遮罩 -->
+        <Border x:Name="TopMask" Background="#90000000" VerticalAlignment="Top" Height="300" HorizontalAlignment="Stretch"/>
+
+        <!-- 中间高亮聚焦视线带（完全透明无遮挡，配以柔和光标上下边线） -->
+        <Grid x:Name="RulerBand" Height="85" VerticalAlignment="Top" Margin="0,300,0,0" HorizontalAlignment="Stretch">
+            <Border BorderBrush="#7040C8FF" BorderThickness="0,1.5,0,1.5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
+        </Grid>
+
+        <!-- 下方半透明深色遮罩 -->
+        <Border x:Name="BottomMask" Background="#90000000" VerticalAlignment="Stretch" Margin="0,385,0,0" HorizontalAlignment="Stretch"/>
+    </Grid>
+</Window>

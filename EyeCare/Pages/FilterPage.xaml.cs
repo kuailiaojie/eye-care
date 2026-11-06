@@ -16,9 +16,26 @@ public sealed partial class FilterPage : Page
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        SyncUiFromSettings();
+        App.Settings.SettingsChanged += OnSettingsChanged;
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        App.Settings.SettingsChanged -= OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged()
+    {
+        DispatcherQueue.TryEnqueue(SyncUiFromSettings);
+    }
+
+    private void SyncUiFromSettings()
     {
         _loading = true;
         var s = App.Settings.Data;
@@ -38,8 +55,37 @@ public sealed partial class FilterPage : Page
 
         UpdateLabels();
         UpdateDayNightVisibility();
+        UpdateProfileSelection();
         _loading = false;
     }
+
+    private void SwitchProfile(SceneProfile profile)
+    {
+        App.Settings.Data.ApplyProfile(profile);
+        App.Settings.Save();
+        App.ApplyFilters();
+        SyncUiFromSettings();
+    }
+
+    private void UpdateProfileSelection()
+    {
+        var cur = App.Settings.Data.CurrentProfile;
+        HighlightButton(ProfileOfficeBtn, cur == SceneProfile.Office);
+        HighlightButton(ProfileReadingBtn, cur == SceneProfile.Reading);
+        HighlightButton(ProfileSleepBtn, cur == SceneProfile.Sleep);
+        HighlightButton(ProfileOriginalBtn, cur == SceneProfile.Original);
+    }
+
+    private static void HighlightButton(Button btn, bool active)
+    {
+        if (btn == null) return;
+        btn.Style = (Style)Application.Current.Resources[active ? "AccentButtonStyle" : "DefaultButtonStyle"];
+    }
+
+    private void ProfileOffice_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Office);
+    private void ProfileReading_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Reading);
+    private void ProfileSleep_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Sleep);
+    private void ProfileOriginal_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Original);
 
     private void UpdateLabels()
     {

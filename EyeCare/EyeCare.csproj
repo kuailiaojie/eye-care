@@ -13,6 +13,10 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
 
+    <Version>1.1.3.0</Version>
+    <AssemblyVersion>1.1.3.0</AssemblyVersion>
+    <FileVersion>1.1.3.0</FileVersion>
+
     <!-- MSIX 打包模式 -->
     <WindowsPackageType>MSIX</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
@@ -33,8 +37,8 @@
     </Content>
   </ItemGroup>
 
-  <!-- MSIX 打包资源 -->
-  <ItemGroup>
+  <!-- MSIX 打包资源（仅在 MSIX 打包模式下包含，非打包散包模式自动排除） -->
+  <ItemGroup Condition="'$(WindowsPackageType)' != 'None'">
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
 

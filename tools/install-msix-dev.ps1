@@ -8,9 +8,26 @@
 #   4. trust cert in LocalMachine (one UAC prompt, skipped if already trusted)
 #   5. Add-AppxPackage
 # NOTE: keep this file pure ASCII - PS 5.1 reads BOM-less UTF-8 as ANSI/GBK.
+param(
+    [string]$BundlePath = ""
+)
+
 $ErrorActionPreference = "Stop"
 
-$bundlePath = "C:\Users\kxin\Downloads\Compressed\EyeCare-Store-Upload_3\EyeCare.msixbundle"
+if ([string]::IsNullOrWhiteSpace($BundlePath)) {
+    $defaultBundle = Join-Path $PSScriptRoot "..\msix\EyeCare.msixbundle"
+    if (Test-Path $defaultBundle) {
+        $BundlePath = (Resolve-Path $defaultBundle).Path
+    } else {
+        $fallback = "C:\Users\kxin\Downloads\Compressed\EyeCare-Store-Upload_3\EyeCare.msixbundle"
+        if (Test-Path $fallback) {
+            $BundlePath = $fallback
+        } else {
+            throw "EyeCare.msixbundle not found. Please provide -BundlePath <path>"
+        }
+    }
+}
+
 $work = Join-Path $env:TEMP "eyecare-sign"
 $cleanDir = Join-Path $work "frombundle"
 New-Item -Path $cleanDir -ItemType Directory -Force | Out-Null
@@ -19,7 +36,7 @@ New-Item -Path $cleanDir -ItemType Directory -Force | Out-Null
 # download folder may carry stale signatures from re-signing).
 # Expand-Archive only accepts .zip - copy the bundle to a .zip name first.
 $bundleZip = Join-Path $cleanDir "bundle.zip"
-Copy-Item $bundlePath $bundleZip -Force
+Copy-Item $BundlePath $bundleZip -Force
 Expand-Archive -Path $bundleZip -DestinationPath $cleanDir -Force
 $msix = Join-Path $cleanDir "EyeCare-x64.msix"
 if (-not (Test-Path $msix)) { throw "EyeCare-x64.msix not found in bundle" }

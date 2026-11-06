@@ -28,6 +28,9 @@ public class SettingsService
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
     };
 
+    private System.Threading.Timer? _saveDebounceTimer;
+    private readonly object _saveLock = new();
+
     public void Load()
     {
         try
@@ -53,18 +56,38 @@ public class SettingsService
         }
     }
 
+    /// <summary>
+    /// 请求保存设置。立即触发 SettingsChanged 通知前端，并以 400ms 防抖写入磁盘，
+    /// 避免拖动滑块时产生高频磁盘 I/O。
+    /// </summary>
     public void Save()
     {
-        try
+        SettingsChanged?.Invoke();
+
+        lock (_saveLock)
         {
-            Directory.CreateDirectory(SettingsDir);
-            var json = JsonSerializer.Serialize(Data, _jsonOptions);
-            File.WriteAllText(SettingsPath, json);
-            SettingsChanged?.Invoke();
+            _saveDebounceTimer?.Dispose();
+            _saveDebounceTimer = new System.Threading.Timer(_ => SaveImmediate(), null, 400, System.Threading.Timeout.Infinite);
         }
-        catch
+    }
+
+    /// <summary>立即同步写入磁盘（在程序退出前调用）。</summary>
+    public void SaveImmediate()
+    {
+        lock (_saveLock)
         {
-            // 保存失败不阻塞应用。
+            _saveDebounceTimer?.Dispose();
+            _saveDebounceTimer = null;
+            try
+            {
+                Directory.CreateDirectory(SettingsDir);
+                var json = JsonSerializer.Serialize(Data, _jsonOptions);
+                File.WriteAllText(SettingsPath, json);
+            }
+            catch
+            {
+                // 保存失败不阻塞应用。
+            }
         }
     }
 }

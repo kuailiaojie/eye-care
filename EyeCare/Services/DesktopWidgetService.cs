@@ -27,6 +27,25 @@ public class DesktopWidgetService : IDisposable
         ApplyVisibility();
     }
 
+    /// <summary>隐藏并停止小组件显示。</summary>
+    public void Stop()
+    {
+        App.UiDispatcher.TryEnqueue(() =>
+        {
+            if (_window is not null && _visible)
+            {
+                _window.AppWindow.Hide();
+                _visible = false;
+            }
+        });
+    }
+
+    /// <summary>立即刷新小组件状态。</summary>
+    public void Update()
+    {
+        App.UiDispatcher.TryEnqueue(Refresh);
+    }
+
     private void OnSettingsChanged()
     {
         App.UiDispatcher.TryEnqueue(ApplyVisibility);

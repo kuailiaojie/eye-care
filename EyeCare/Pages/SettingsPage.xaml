@@ -23,6 +23,67 @@
                     <ToggleSwitch x:Name="DesktopWidgetSwitch" Header="桌面小组件（显示使用时长与状态）"
                                   OffContent="隐藏小组件" OnContent="托盘运行时在桌面角落显示"
                                   Toggled="DesktopWidgetSwitch_Toggled"/>
+                    <ToggleSwitch x:Name="WidgetCompactSwitch" Header="小组件紧凑胶囊模式（极简小巧占用更少空间）"
+                                  Toggled="WidgetCompactSwitch_Toggled"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="高级控制与硬件联动" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <ToggleSwitch x:Name="SmoothTransitionSwitch" Header="色温与亮度平滑渐变"
+                                  OffContent="瞬间跳变" OnContent="柔和缓动过渡（避免色彩突变刺激人眼）"
+                                  Toggled="SmoothTransitionSwitch_Toggled"/>
+                    <ToggleSwitch x:Name="GlobalHotkeySwitch" Header="系统全局快捷键"
+                                  OffContent="关闭快捷键" OnContent="Alt+End 滤镜 · Alt+PgUp/Dn 亮度 · Alt+B 休息 · Alt+R 标尺"
+                                  Toggled="GlobalHotkeySwitch_Toggled"/>
+                    <ToggleSwitch x:Name="DdcCiSwitch" Header="DDC/CI 物理硬件显示器背光控制"
+                                  OffContent="纯软件遮罩变暗" OnContent="优先调节物理显示器硬件背光（节能、保真，不支持时自动降级）"
+                                  Toggled="DdcCiSwitch_Toggled"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="专业色彩与智能避让" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <ToggleSwitch x:Name="AppBypassSwitch" Header="色彩敏感软件自动避让"
+                                  OffContent="持续开启滤镜" OnContent="检测到设计/调色/绘图或影音前台激活时自动暂停滤镜"
+                                  Toggled="AppBypassSwitch_Toggled"/>
+                    <TextBlock Text="已内置白名单：Photoshop, Lightroom, Illustrator, Premiere, After Effects, Figma, DaVinci Resolve, PotPlayer, VLC, MPV 等。"
+                               FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="护眼辅助小工具" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <ToggleSwitch x:Name="ReadingRulerSwitch" Header="阅读聚焦视线标尺 (快捷键 Alt+R)"
+                                  OffContent="关闭标尺" OnContent="跟随光标水平行保持高亮，其余区域变暗沉浸阅读"
+                                  Toggled="ReadingRulerSwitch_Toggled"/>
+                    <ToggleSwitch x:Name="MicroNudgeSwitch" Header="眨眼润眼与坐姿体态定时微提醒"
+                                  OffContent="关闭微提示" OnContent="每 15 分钟在屏幕角落温和浮现 3 秒（防治干眼与颈椎僵硬）"
+                                  Toggled="MicroNudgeSwitch_Toggled"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="屏幕与组件急救" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <TextBlock Text="当遇到多显示器断开、显示器异常发黄或异常退出残留暖色时，可通过下方按钮一键重置。"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,8,0,0">
+                        <Button x:Name="ResetGammaButton" Content="恢复屏幕默认色彩" Click="ResetGammaButton_Click"/>
+                        <Button x:Name="ResetWidgetButton" Content="重置小组件到右上角" Click="ResetWidgetButton_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ResetStatusText" Foreground="{ThemeResource SystemFillColorSuccessBrush}" Visibility="Collapsed"/>
                 </StackPanel>
             </Border>
 
@@ -32,7 +93,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="关于" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
                     <TextBlock Text="护眼助手 EyeCare"/>
-                    <TextBlock Text="版本 1.1.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="VersionText" Text="版本 ..." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="基于 Windows App SDK (WinUI 3) 与 Fluent Design 构建"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>

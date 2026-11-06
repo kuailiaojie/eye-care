@@ -1,22 +1,9 @@
-﻿# 本地 MSIX 打包脚本
-# 用法（在 Visual Studio Developer Command Prompt 中执行）：
-#   powershell -ExecutionPolicy Bypass -File tools\build-msix.ps1
-#   powershell -ExecutionPolicy Bypass -File tools\build-msix.ps1 -Version 1.0.1.0
-#
-# 产物（输出到 msix\）：
-#   EyeCare-<arch>.msix     各平台独立包（x64 / x86 / ARM64）
-#   EyeCare.msixbundle      多架构捆绑包
-#   EyeCare.msixupload      Store 上传格式（提交 Partner Center 用这个）
-#
-# 注意：
-# - 包身份（Name / Publisher / PublisherDisplayName）已写入 EyeCare\Package.appxmanifest，
-#   对应 Partner Center 分配的正式身份（PFN: DE3C23BA.666688A021C8_p7a589d6fj0mw），
-#   本脚本不再硬编码身份。
-# - 若 -Version 未生效（版本仍为旧值），请直接修改 Package.appxmanifest 中 Identity 的 Version。
-
+# Local MSIX and Portable Package Build Script
 param(
-    [string]$Version = "1.0.0.0",
-    [switch]$SkipBundle
+    [string]$Version = "1.1.3.0",
+    [string]$SingleArch = "",
+    [switch]$SkipBundle,
+    [bool]$BuildPortable = $true
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,60 +11,141 @@ $ErrorActionPreference = "Stop"
 $root = "$PSScriptRoot\.."
 $project = "$root\EyeCare\EyeCare.csproj"
 $outDir = "$root\msix"
+$distDir = "$root\dist"
 $bundleDir = "$outDir\bundle"
 
 New-Item -Path $outDir -ItemType Directory -Force | Out-Null
+New-Item -Path $distDir -ItemType Directory -Force | Out-Null
 
-# 定位 Windows SDK 工具（MakeAppx / makemsixupload）
-$kitsRoot = "C:\Program Files (x86)\Windows Kits\10\bin"
+# Locate dotnet.exe and MSBuild
+$dotnet = "dotnet"
+$userDotnet = "$env:LOCALAPPDATA\Microsoft\dotnet\dotnet.exe"
+if (Test-Path $userDotnet) {
+    $dotnet = $userDotnet
+    $env:DOTNET_ROOT = "$env:LOCALAPPDATA\Microsoft\dotnet"
+    $env:PATH = "$env:LOCALAPPDATA\Microsoft\dotnet;$env:PATH"
+}
+
+$hasMsbuild = [bool](Get-Command msbuild -ErrorAction SilentlyContinue)
+
+function Invoke-Build {
+    param([string[]]$BuildArgs)
+    if ($hasMsbuild) {
+        & msbuild $BuildArgs
+    } else {
+        & $dotnet msbuild $BuildArgs
+    }
+    if ($LASTEXITCODE -ne 0) { throw "Build command failed: $BuildArgs" }
+}
+
+# Locate Windows SDK MakeAppx.exe
 $makeAppx = $null
 $makeMsixUpload = $null
-if (Test-Path $kitsRoot) {
-    $makeAppx = Get-ChildItem "$kitsRoot\*\x64\MakeAppx.exe" -ErrorAction SilentlyContinue |
-        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-    $makeMsixUpload = Get-ChildItem "$kitsRoot\*\x64\makemsixupload.exe" -ErrorAction SilentlyContinue |
-        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-}
-if (-not $makeAppx) { throw "MakeAppx.exe 未找到（请安装 Windows SDK，路径: $kitsRoot）" }
+$kits = "C:\Program Files (x86)\Windows Kits\10"
+if (Test-Path $kits) {
+    $foundAppx = Get-ChildItem "$kits\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1
+    if ($foundAppx) {
+        $makeAppx = $foundAppx.FullName
+    } else {
+        $ack = Get-ChildItem "$kits\App Certification Kit\makeappx.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($ack) { $makeAppx = $ack.FullName }
+    }
 
-$platforms = @(
+    $foundUpload = Get-ChildItem "$kits\bin\*\x64\makemsixupload.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1
+    if ($foundUpload) { $makeMsixUpload = $foundUpload.FullName }
+}
+
+$allPlatforms = @(
     @{ Name = "x64";   Platform = "x64";   Rid = "win-x64" }
     @{ Name = "x86";   Platform = "x86";   Rid = "win-x86" }
     @{ Name = "arm64"; Platform = "ARM64"; Rid = "win-arm64" }
 )
 
-# ---- 1. 构建各平台 MSIX ----
-foreach ($p in $platforms) {
-    Write-Host "=== 构建 MSIX ($($p.Name)) v$Version ===" -ForegroundColor Cyan
-    msbuild $project /t:Restore /p:Configuration=Release /p:Platform=$($p.Platform) /p:RuntimeIdentifier=$($p.Rid) /v:minimal
-    if ($LASTEXITCODE -ne 0) { throw "Restore 失败 ($($p.Name))" }
-    msbuild $project /t:Build /p:Configuration=Release /p:Platform=$($p.Platform) /p:RuntimeIdentifier=$($p.Rid) `
-        /p:WindowsPackageType=MSIX /p:GenerateAppxPackageOnBuild=True `
-        /p:AppxPackageVersion=$Version `
-        /p:AppxPackageOutput="$outDir\EyeCare-$($p.Name).msix" `
-        /p:AppxPackageSigningEnabled=False /p:AppxBundle=Never /v:minimal
-    if ($LASTEXITCODE -ne 0) { throw "构建失败 ($($p.Name))" }
+$platforms = if ($SingleArch) {
+    $allPlatforms | Where-Object { $_.Name -ieq $SingleArch }
+} else {
+    $allPlatforms
 }
 
-# ---- 2. 创建多架构 bundle ----
-if (-not $SkipBundle) {
-    Write-Host "=== 创建 EyeCare.msixbundle ===" -ForegroundColor Cyan
+# ---- 1. Build MSIX Packages ----
+foreach ($p in $platforms) {
+    Write-Host "=== Building MSIX ($($p.Name)) v$Version ===" -ForegroundColor Cyan
+    Invoke-Build @(
+        $project,
+        "/t:Build",
+        "/p:Configuration=Release",
+        "/p:Platform=$($p.Platform)",
+        "/p:RuntimeIdentifier=$($p.Rid)",
+        "/p:WindowsPackageType=MSIX",
+        "/p:GenerateAppxPackageOnBuild=True",
+        "/p:AppxPackageVersion=$Version",
+        "/p:AppxPackageOutput=$outDir\EyeCare-$($p.Name).msix",
+        "/p:AppxPackageSigningEnabled=False",
+        "/p:AppxBundle=Never",
+        "/v:minimal"
+    )
+    Copy-Item "$outDir\EyeCare-$($p.Name).msix" "$distDir\EyeCare-v$Version-$($p.Name).msix" -Force
+}
+
+# ---- 2. Create Multi-Arch Bundle ----
+if (-not $SkipBundle -and -not $SingleArch -and $makeAppx) {
+    Write-Host "=== Creating EyeCare.msixbundle ===" -ForegroundColor Cyan
     New-Item -Path $bundleDir -ItemType Directory -Force | Out-Null
     Get-ChildItem "$outDir\EyeCare-*.msix" | Copy-Item -Destination $bundleDir -Force
-    & $makeAppx bundle /d $bundleDir /p "$outDir\EyeCare.msixbundle" /v
-    if ($LASTEXITCODE -ne 0) { throw "bundle 创建失败" }
+    & $makeAppx bundle /d $bundleDir /p "$outDir\EyeCare.msixbundle" /o /v
+    if ($LASTEXITCODE -eq 0) {
+        Copy-Item "$outDir\EyeCare.msixbundle" "$distDir\EyeCare-v$Version.msixbundle" -Force
 
-    # ---- 3. 生成 Store 上传格式 .msixupload ----
-    if ($makeMsixUpload) {
-        Write-Host "=== 创建 EyeCare.msixupload ===" -ForegroundColor Cyan
-        & $makeMsixUpload /p "$outDir\EyeCare.msixbundle" /o "$outDir\EyeCare.msixupload"
-        if ($LASTEXITCODE -ne 0) { throw "msixupload 创建失败" }
-    } else {
-        Write-Warning "未找到 makemsixupload.exe，跳过 .msixupload 生成（bundle 也可直接上传 Store）"
+        # ---- 3. Generate Store .msixupload ----
+        if ($makeMsixUpload) {
+            Write-Host "=== Creating EyeCare.msixupload ===" -ForegroundColor Cyan
+            & $makeMsixUpload /p "$outDir\EyeCare.msixbundle" /o "$outDir\EyeCare.msixupload"
+            if ($LASTEXITCODE -eq 0) {
+                Copy-Item "$outDir\EyeCare.msixupload" "$distDir\EyeCare-v$Version.msixupload" -Force
+            }
+        }
     }
 }
 
-Write-Host "=== 构建完成 ===" -ForegroundColor Green
-Get-ChildItem "$outDir\*.msix", "$outDir\*.msixbundle", "$outDir\*.msixupload" -ErrorAction SilentlyContinue | ForEach-Object {
-    Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1MB, 2)) MB"
+# ---- 4. Build Unpackaged Portable App (Loose Files & Zip) ----
+if ($BuildPortable) {
+    Write-Host "=== Building Unpackaged Portable App (win-x64) ===" -ForegroundColor Cyan
+    $portableOut = [System.IO.Path]::GetFullPath("$distDir\EyeCare-win-x64-portable")
+    $runningProcesses = Get-Process -Name "EyeCare" -ErrorAction SilentlyContinue | Where-Object {
+        try {
+            $_.Path -and [System.IO.Path]::GetFullPath($_.Path).StartsWith($portableOut, [System.StringComparison]::OrdinalIgnoreCase)
+        } catch { $false }
+    }
+    if ($runningProcesses) {
+        Write-Host "Stopping running portable EyeCare process..." -ForegroundColor Yellow
+        $runningProcesses | Stop-Process -Force
+        Start-Sleep -Seconds 1
+    }
+    if (Test-Path $portableOut) { Remove-Item $portableOut -Recurse -Force }
+
+    & $dotnet publish $project -c Release -p:Platform=x64 -r win-x64 --self-contained true `
+        -p:WindowsPackageType=None -p:WindowsAppSDKSelfContained=true -o $portableOut /v:minimal
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "=== Creating Portable Zip Archive ===" -ForegroundColor Cyan
+        $zipPath = "$distDir\EyeCare-v$Version-win-x64-portable.zip"
+        if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+        Compress-Archive -Path "$portableOut\*" -DestinationPath $zipPath -Force
+    } else {
+        Write-Warning "Portable build failed. Check logs."
+    }
+}
+
+Write-Host ""
+Write-Host "Build completed successfully! Distribution artifacts:" -ForegroundColor Green
+Get-ChildItem "$distDir\*" -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_.PSIsContainer) {
+        $count = (Get-ChildItem $_.FullName -Recurse).Count
+        Write-Host "  [Directory] $($_.Name)\ ($count files)" -ForegroundColor Yellow
+    } else {
+        $mb = [math]::Round($_.Length / 1MB, 2)
+        Write-Host "  [Package]   $($_.Name) - $mb MB" -ForegroundColor Cyan
+    }
 }

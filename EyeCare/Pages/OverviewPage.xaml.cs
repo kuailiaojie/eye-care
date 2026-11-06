@@ -1,4 +1,5 @@
 using System;
+using EyeCare.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -27,13 +28,75 @@ public sealed partial class OverviewPage : Page
         BreakToggle.IsOn = s.BreakReminderEnabled;
         _loading = false;
 
+        UpdateCurrentStatus();
+        UpdateProfileSelection();
+        UpdateHealthStats();
         App.BreakReminder.WorkTick += OnWorkTick;
+        App.Settings.SettingsChanged += OnSettingsChanged;
+        App.Stats.StatsUpdated += OnStatsUpdated;
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         App.BreakReminder.WorkTick -= OnWorkTick;
+        App.Settings.SettingsChanged -= OnSettingsChanged;
+        App.Stats.StatsUpdated -= OnStatsUpdated;
     }
+
+    private void OnStatsUpdated()
+    {
+        DispatcherQueue.TryEnqueue(UpdateHealthStats);
+    }
+
+    private void OnSettingsChanged()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _loading = true;
+            var s = App.Settings.Data;
+            BlueLightToggle.IsOn = s.BlueLightEnabled;
+            BrightnessToggle.IsOn = s.BrightnessEnabled;
+            BreakToggle.IsOn = s.BreakReminderEnabled;
+            UpdateCurrentStatus();
+            UpdateProfileSelection();
+            _loading = false;
+        });
+    }
+
+    private void UpdateCurrentStatus()
+    {
+        var (status, pct) = App.BreakReminder.GetCurrentStatus();
+        WorkProgress.Value = pct;
+        WorkStatusText.Text = status;
+    }
+
+    private void SwitchProfile(SceneProfile profile)
+    {
+        App.Settings.Data.ApplyProfile(profile);
+        App.Settings.Save();
+        App.ApplyFilters();
+        UpdateProfileSelection();
+    }
+
+    private void UpdateProfileSelection()
+    {
+        var cur = App.Settings.Data.CurrentProfile;
+        HighlightButton(ProfileOfficeBtn, cur == SceneProfile.Office);
+        HighlightButton(ProfileReadingBtn, cur == SceneProfile.Reading);
+        HighlightButton(ProfileSleepBtn, cur == SceneProfile.Sleep);
+        HighlightButton(ProfileOriginalBtn, cur == SceneProfile.Original);
+    }
+
+    private static void HighlightButton(Button btn, bool active)
+    {
+        if (btn == null) return;
+        btn.Style = (Style)Application.Current.Resources[active ? "AccentButtonStyle" : "DefaultButtonStyle"];
+    }
+
+    private void ProfileOffice_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Office);
+    private void ProfileReading_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Reading);
+    private void ProfileSleep_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Sleep);
+    private void ProfileOriginal_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Original);
 
     private void OnWorkTick(int elapsedSeconds, int totalSeconds)
     {
@@ -74,5 +137,90 @@ public sealed partial class OverviewPage : Page
     private void BreakNowButton_Click(object sender, RoutedEventArgs e)
     {
         App.BreakReminder.StartBreakNow();
+    }
+
+    private void UpdateHealthStats()
+    {
+        var today = App.Stats.GetTodayRecord();
+        TodayScreenMinutesText.Text = $"{today.ScreenMinutes} 分钟";
+        TodayFilterMinutesText.Text = $"{today.FilterMinutes} 分钟";
+        TodayBreaksText.Text = $"{today.CompletedBreaks} 次";
+
+        int streak = App.Stats.CalculateStreak();
+        StreakText.Text = streak > 0 ? $"🔥 连续打卡 {streak} 天" : "🌱 开启今日打卡";
+
+        Render7DaysChart();
+    }
+
+    private void Render7DaysChart()
+    {
+        ChartContainer.Children.Clear();
+        ChartContainer.ColumnDefinitions.Clear();
+
+        var days = App.Stats.GetLast7Days();
+        int maxMin = 60;
+        foreach (var d in days)
+        {
+            if (d.ScreenMinutes > maxMin) maxMin = d.ScreenMinutes;
+        }
+
+        for (int i = 0; i < days.Count; i++)
+        {
+            ChartContainer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var record = days[i];
+
+            var colPanel = new StackPanel
+            {
+                Spacing = 4,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            Grid.SetColumn(colPanel, i);
+
+            var valText = new TextBlock
+            {
+                Text = record.ScreenMinutes > 0 ? $"{record.ScreenMinutes}" : "-",
+                FontSize = 10,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            double pct = (double)record.ScreenMinutes / maxMin;
+            double barHeight = Math.Max(6, pct * 60);
+
+            var bar = new Border
+            {
+                Height = barHeight,
+                CornerRadius = new CornerRadius(4),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Background = record.ScreenMinutes > 0
+                    ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
+                    : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["LayerFillColorDefaultBrush"]
+            };
+
+            string dayLabel = "今天";
+            if (i < 6)
+            {
+                if (DateTime.TryParse(record.Date, out var dt))
+                {
+                    dayLabel = dt.ToString("M/d");
+                }
+            }
+
+            var labelText = new TextBlock
+            {
+                Text = dayLabel,
+                FontSize = 11,
+                FontWeight = i == 6 ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[i == 6 ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"],
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            colPanel.Children.Add(valText);
+            colPanel.Children.Add(bar);
+            colPanel.Children.Add(labelText);
+
+            ChartContainer.Children.Add(colPanel);
+        }
     }
 }

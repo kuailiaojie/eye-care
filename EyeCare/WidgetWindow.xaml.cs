@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using EyeCare.Native;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -88,6 +89,7 @@ public sealed partial class WidgetWindow : Window
             {
                 try
                 {
+                    ApplyCompactMode();
                     FitToContent();
                     RestorePosition();
                 }
@@ -202,16 +204,29 @@ public sealed partial class WidgetWindow : Window
         AppWindow.Resize(new SizeInt32(w, h));
     }
 
-    /// <summary>恢复窗口位置：已自定义则用保存的位置，否则默认主屏工作区右上角。</summary>
-    private void RestorePosition()
+    /// <summary>恢复窗口位置：已自定义则用保存的位置（若仍处于有效显示器内），否则默认主屏工作区右上角。</summary>
+    public void RestorePosition()
     {
         var s = App.Settings.Data;
         if (s.WidgetPositionCustomized)
         {
-            AppWindow.Move(new PointInt32(s.WidgetX, s.WidgetY));
-            return;
+            // 屏幕边界保护：检查 (WidgetX, WidgetY) 是否在任何当前活动的显示器内
+            var hMon = NativeMethods.MonitorFromPoint(new NativeMethods.POINT(s.WidgetX, s.WidgetY), NativeMethods.MONITOR_DEFAULTTONULL);
+            if (hMon != IntPtr.Zero)
+            {
+                AppWindow.Move(new PointInt32(s.WidgetX, s.WidgetY));
+                return;
+            }
+            // 若落在屏幕外（如副屏已被拔除），自动回退到主屏右上角
+            s.WidgetPositionCustomized = false;
         }
 
+        ResetToDefaultPosition();
+    }
+
+    /// <summary>一键重置小组件到当前主屏工作区右上角。</summary>
+    public void ResetToDefaultPosition()
+    {
         var hwnd = WindowNative.GetWindowHandle(this);
         var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
         var area = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
@@ -223,6 +238,9 @@ public sealed partial class WidgetWindow : Window
         int x = wa.X + wa.Width - AppWindow.Size.Width - margin;
         int y = wa.Y + margin;
         AppWindow.Move(new PointInt32(Math.Max(wa.X, x), Math.Max(wa.Y, y)));
+
+        App.Settings.Data.WidgetPositionCustomized = false;
+        App.Settings.Save();
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -250,6 +268,75 @@ public sealed partial class WidgetWindow : Window
     private void RootGrid_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         App.ShowMainWindow();
+    }
+
+    private void MenuOpen_Click(object sender, RoutedEventArgs e)
+    {
+        App.ShowMainWindow();
+    }
+
+    private void MenuResetPosition_Click(object sender, RoutedEventArgs e)
+    {
+        ResetToDefaultPosition();
+    }
+
+    private void MenuHideWidget_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.Data.DesktopWidgetEnabled = false;
+        App.Settings.Save();
+        App.Widget.Stop();
+    }
+
+    private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (App.Settings.Data.WidgetCompactMode) return;
+        HoverActionGrid.Visibility = Visibility.Visible;
+        FitToContent();
+    }
+
+    private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        HoverActionGrid.Visibility = Visibility.Collapsed;
+        FitToContent();
+    }
+
+    private void HoverPause_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.Data.BreakReminderEnabled = !App.Settings.Data.BreakReminderEnabled;
+        App.Settings.Save();
+        App.BreakReminder.ApplySettings();
+        App.Widget?.Update();
+    }
+
+    private void HoverBlueLight_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.Data.BlueLightEnabled = !App.Settings.Data.BlueLightEnabled;
+        App.Settings.Save();
+        App.ApplyFilters();
+        App.Widget?.Update();
+    }
+
+    private void HoverBreakNow_Click(object sender, RoutedEventArgs e)
+    {
+        App.BreakReminder.StartBreakNow();
+    }
+
+    private void MenuCompactToggle_Click(object sender, RoutedEventArgs e)
+    {
+        App.Settings.Data.WidgetCompactMode = MenuCompactToggle.IsChecked;
+        App.Settings.Save();
+        ApplyCompactMode();
+    }
+
+    private void ApplyCompactMode()
+    {
+        bool compact = App.Settings.Data.WidgetCompactMode;
+        MenuCompactToggle.IsChecked = compact;
+        TimeText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        WorkProgress.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        BottomInfoGrid.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        HoverActionGrid.Visibility = Visibility.Collapsed;
+        FitToContent();
     }
 
     /// <summary>保持置顶（在可能被覆盖后重新置顶）。</summary>

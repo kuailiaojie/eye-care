@@ -27,6 +27,14 @@ public class FilterOverlayService
     private Timer? _dayNightTimer;
     private bool _initialized;
 
+    // 平滑缓动过渡状态
+    private double _currentBlueAlpha = 0;
+    private double _currentDimAlpha = 0;
+    private double _targetBlueAlpha = 0;
+    private double _targetDimAlpha = 0;
+    private Timer? _transitionTimer;
+    private readonly object _transitionLock = new();
+
     private class MonitorOverlay
     {
         public IntPtr BlueLight { get; set; }
@@ -51,6 +59,21 @@ public class FilterOverlayService
 
         NativeMethods.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, EnumProc, IntPtr.Zero);
         _initialized = true;
+    }
+
+    /// <summary>显示器插拔或分辨率变更后重新枚举并重建所有覆盖窗口。</summary>
+    public void Reinitialize()
+    {
+        EnsureInitialized();
+        foreach (var overlay in _overlays)
+        {
+            if (overlay.BlueLight != IntPtr.Zero) NativeMethods.DestroyWindow(overlay.BlueLight);
+            if (overlay.Dim != IntPtr.Zero) NativeMethods.DestroyWindow(overlay.Dim);
+        }
+        _overlays.Clear();
+
+        NativeMethods.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, EnumProc, IntPtr.Zero);
+        ApplySettings();
     }
 
     private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
@@ -120,8 +143,8 @@ public class FilterOverlayService
         // 画笔由窗口类持有，应用进程结束后自动释放。
     }
 
-    /// <summary>根据当前设置刷新所有覆盖窗口的颜色 / 透明度。</summary>
-    public void ApplySettings()
+    /// <summary>根据当前设置刷新所有覆盖窗口的颜色 / 透明度（支持平滑渐变与白名单避让）。</summary>
+    public void ApplySettings(bool immediate = false)
     {
         EnsureInitialized();
 
@@ -130,7 +153,7 @@ public class FilterOverlayService
         // 自动昼夜模式下每分钟刷新一次，让色温随日落平滑过渡
         if (s.AutoDayNight)
         {
-            _dayNightTimer ??= new Timer(_ => App.UiDispatcher.TryEnqueue(ApplySettings), null, 60000, 60000);
+            _dayNightTimer ??= new Timer(_ => App.UiDispatcher.TryEnqueue(() => ApplySettings()), null, 60000, 60000);
         }
         else
         {
@@ -141,33 +164,85 @@ public class FilterOverlayService
         // 全屏程序（游戏/视频）期间暂停所有覆盖层，避免干扰
         bool pausedByFullscreen = s.PauseOnFullscreen && App.FullscreenPause.IsFullscreenActive;
 
+        // 色彩敏感软件白名单避让：设计、调色或影音全屏激活时避让
+        bool bypassActive = s.AppBypassEnabled && App.AppBypass != null && App.AppBypass.IsBypassActive;
+
         // 蓝光 alpha：叠加层模式下按「有效色温 × 强度」计算；
         // Gamma 校正模式下蓝光由系统级 Ramp 负责，叠加层不再叠加（避免双重过滤）。
-        int blueLightAlpha = 0;
-        if (s.BlueLightEnabled && !pausedByFullscreen && s.FilterMode == FilterMode.Overlay)
+        int targetBlueAlpha = 0;
+        if (s.BlueLightEnabled && !pausedByFullscreen && !bypassActive && s.FilterMode == FilterMode.Overlay)
         {
             int effectiveTemp = DayNightSchedule.GetEffectiveColorTemperature(s);
             double tempFactor = ColorTemperatureFactor(effectiveTemp);
-            blueLightAlpha = (int)Math.Clamp(tempFactor * s.FilterStrength * 255.0, 0, 255);
+            targetBlueAlpha = (int)Math.Clamp(tempFactor * s.FilterStrength * 255.0, 0, 255);
         }
 
         // 亮度 alpha：亮度越低遮挡越强
-        int dimAlpha = 0;
+        int targetDimAlpha = 0;
         if (s.BrightnessEnabled && !pausedByFullscreen)
         {
-            dimAlpha = (int)Math.Clamp((1.0 - s.Brightness) * 255.0, 0, 255);
+            targetDimAlpha = (int)Math.Clamp((1.0 - s.Brightness) * 255.0, 0, 255);
         }
 
+        lock (_transitionLock)
+        {
+            _targetBlueAlpha = targetBlueAlpha;
+            _targetDimAlpha = targetDimAlpha;
+
+            if (immediate || !s.SmoothTransitionEnabled)
+            {
+                _currentBlueAlpha = targetBlueAlpha;
+                _currentDimAlpha = targetDimAlpha;
+                _transitionTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                RenderAlphas((byte)targetBlueAlpha, (byte)targetDimAlpha);
+            }
+            else
+            {
+                _transitionTimer ??= new Timer(OnTransitionTick, null, 0, 20);
+                _transitionTimer.Change(0, 20);
+            }
+        }
+    }
+
+    private void OnTransitionTick(object? state)
+    {
+        lock (_transitionLock)
+        {
+            double dBlue = _targetBlueAlpha - _currentBlueAlpha;
+            double dDim = _targetDimAlpha - _currentDimAlpha;
+
+            bool blueDone = Math.Abs(dBlue) < 0.8;
+            bool dimDone = Math.Abs(dDim) < 0.8;
+
+            if (blueDone && dimDone)
+            {
+                _currentBlueAlpha = _targetBlueAlpha;
+                _currentDimAlpha = _targetDimAlpha;
+                _transitionTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            }
+            else
+            {
+                _currentBlueAlpha += dBlue * 0.25;
+                _currentDimAlpha += dDim * 0.25;
+            }
+
+            RenderAlphas((byte)Math.Clamp(Math.Round(_currentBlueAlpha), 0, 255),
+                         (byte)Math.Clamp(Math.Round(_currentDimAlpha), 0, 255));
+        }
+    }
+
+    private void RenderAlphas(byte blueAlpha, byte dimAlpha)
+    {
         foreach (var overlay in _overlays)
         {
             if (overlay.BlueLight != IntPtr.Zero)
             {
-                NativeMethods.SetLayeredWindowAttributes(overlay.BlueLight, 0, (byte)blueLightAlpha, NativeMethods.LWA_ALPHA);
-                NativeMethods.ShowWindow(overlay.BlueLight, blueLightAlpha > 0 ? NativeMethods.SW_SHOWNOACTIVATE : NativeMethods.SW_HIDE);
+                NativeMethods.SetLayeredWindowAttributes(overlay.BlueLight, 0, blueAlpha, NativeMethods.LWA_ALPHA);
+                NativeMethods.ShowWindow(overlay.BlueLight, blueAlpha > 0 ? NativeMethods.SW_SHOWNOACTIVATE : NativeMethods.SW_HIDE);
             }
             if (overlay.Dim != IntPtr.Zero)
             {
-                NativeMethods.SetLayeredWindowAttributes(overlay.Dim, 0, (byte)dimAlpha, NativeMethods.LWA_ALPHA);
+                NativeMethods.SetLayeredWindowAttributes(overlay.Dim, 0, dimAlpha, NativeMethods.LWA_ALPHA);
                 NativeMethods.ShowWindow(overlay.Dim, dimAlpha > 0 ? NativeMethods.SW_SHOWNOACTIVATE : NativeMethods.SW_HIDE);
             }
         }
@@ -189,6 +264,8 @@ public class FilterOverlayService
     /// <summary>关闭并销毁所有覆盖窗口。</summary>
     public void Dispose()
     {
+        _transitionTimer?.Dispose();
+        _transitionTimer = null;
         _dayNightTimer?.Dispose();
         _dayNightTimer = null;
 

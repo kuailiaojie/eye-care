@@ -2,29 +2,55 @@
     x:Class="EyeCare.BreakWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="#B3080A12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" MaxWidth="560">
+    <Grid Background="#E6080A12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" MaxWidth="580">
             <TextBlock x:Name="TitleText" Text="该休息一下啦 👀"
-                       FontSize="34" FontWeight="Bold" HorizontalAlignment="Center"
+                       FontSize="32" FontWeight="Bold" HorizontalAlignment="Center"
                        Foreground="White"/>
-            <TextBlock x:Name="BreakTypeText" Text="短休息"
-                       FontSize="16" HorizontalAlignment="Center"
-                       Foreground="#CCFFFFFF"/>
-            <Border Background="#22FFFFFF" CornerRadius="12" Padding="24" Margin="0,8,0,0">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="给眼睛一个放松的机会：" Foreground="#E6FFFFFF" FontWeight="SemiBold"/>
-                    <TextBlock Text="• 眺望 6 米外的远处，持续 20 秒" Foreground="#CCFFFFFF"/>
-                    <TextBlock Text="• 轻轻转动眼球，上下左右各看 3 次" Foreground="#CCFFFFFF"/>
-                    <TextBlock Text="• 起来走动，接杯水，伸展一下身体" Foreground="#CCFFFFFF"/>
-                    <TextBlock Text="• 多眨眼，保持眼睛湿润" Foreground="#CCFFFFFF"/>
+            <TextBlock x:Name="BreakTypeText" Text="短休息 · 20-20-20 法则"
+                       FontSize="15" HorizontalAlignment="Center"
+                       Foreground="#AAFFFFFF"/>
+
+            <!-- 呼吸引导圈 (4-7-8 呼吸放松动效) -->
+            <Grid Width="150" Height="150" HorizontalAlignment="Center" Margin="0,4">
+                <Ellipse x:Name="BreathRing" Width="130" Height="130"
+                         Stroke="{ThemeResource SystemFillColorSuccessBrush}"
+                         StrokeThickness="3"
+                         Opacity="0.85"
+                         RenderTransformOrigin="0.5,0.5">
+                    <Ellipse.RenderTransform>
+                        <ScaleTransform x:Name="BreathScale" ScaleX="1.0" ScaleY="1.0"/>
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                <Ellipse Width="96" Height="96" Fill="#20FFFFFF"/>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
+                    <TextBlock x:Name="BreathPhaseText" Text="吸气" FontSize="16" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" Foreground="White"/>
+                    <TextBlock x:Name="BreathSecText" Text="4s" FontSize="11"
+                               HorizontalAlignment="Center" Foreground="#AAFFFFFF"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 休息建议卡片 -->
+            <Border Background="#18FFFFFF" CornerRadius="12" Padding="20" Margin="0,4,0,0">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="科学护眼小建议：" Foreground="#F0FFFFFF" FontWeight="SemiBold" FontSize="13"/>
+                    <TextBlock Text="• 眺望 6 米外的窗外或绿植，让睫状肌彻底松弛" Foreground="#CCFFFFFF" FontSize="12"/>
+                    <TextBlock Text="• 缓慢深眨眼 5 次，加速泪膜重新均匀分布" Foreground="#CCFFFFFF" FontSize="12"/>
+                    <TextBlock Text="• 起身倒杯水，转动肩颈，告别长时间僵直" Foreground="#CCFFFFFF" FontSize="12"/>
                 </StackPanel>
             </Border>
-            <TextBlock x:Name="CountdownText" Text="00:20"
-                       FontSize="48" FontWeight="Bold" HorizontalAlignment="Center"
-                       Foreground="White"/>
-            <Button x:Name="SkipButton" Content="继续工作（跳过）"
-                    HorizontalAlignment="Center" Click="SkipButton_Click"
-                    Foreground="White" Background="#33FFFFFF" BorderThickness="0"/>
+
+            <!-- 倒计时与跳过按钮 -->
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="CountdownText" Text="00:20"
+                           FontSize="44" FontWeight="Bold" HorizontalAlignment="Center"
+                           Foreground="White"/>
+                <Button x:Name="SkipButton" Content="继续工作（跳过）"
+                        HorizontalAlignment="Center" Click="SkipButton_Click"
+                        Foreground="White" Background="#33FFFFFF" BorderThickness="0"
+                        Padding="20,8"/>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

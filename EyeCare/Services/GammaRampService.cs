@@ -25,6 +25,16 @@ public class GammaRampService : IDisposable
     private Timer? _reapplyTimer;
     private bool _active;
 
+    // 平滑缓动过渡状态
+    private double _currentR = 1.0;
+    private double _currentG = 1.0;
+    private double _currentB = 1.0;
+    private double _targetR = 1.0;
+    private double _targetG = 1.0;
+    private double _targetB = 1.0;
+    private Timer? _transitionTimer;
+    private readonly object _rampLock = new();
+
     /// <summary>Gamma 校正当前是否生效。</summary>
     public bool IsActive => _active;
 
@@ -39,52 +49,134 @@ public class GammaRampService : IDisposable
         _settings = settings;
     }
 
-    /// <summary>按当前设置应用（或关闭）Gamma 校正。</summary>
-    public void ApplySettings()
+    /// <summary>按当前设置应用（或关闭）Gamma 校正（支持平滑渐变与白名单避让）。</summary>
+    public void ApplySettings(bool immediate = false)
     {
         var s = _settings.Data;
-        bool shouldBeActive = s.BlueLightEnabled && s.FilterMode == FilterMode.GammaRamp;
+        bool fullscreenPaused = s.PauseOnFullscreen && App.FullscreenPause.IsFullscreenActive;
+        bool bypassActive = s.AppBypassEnabled && App.AppBypass != null && App.AppBypass.IsBypassActive;
+        bool shouldBeActive = s.BlueLightEnabled && s.FilterMode == FilterMode.GammaRamp && !fullscreenPaused && !bypassActive;
 
-        if (!shouldBeActive)
+        double targetR = 1.0, targetG = 1.0, targetB = 1.0;
+        if (shouldBeActive)
         {
-            Disable();
-            return;
+            int kelvin = DayNightSchedule.GetEffectiveColorTemperature(s);
+            GetTemperatureMultipliers(kelvin, ref targetR, ref targetG, ref targetB);
+            double strength = Math.Clamp(s.FilterStrength, 0.0, 1.0);
+            targetR = 1.0 - (1.0 - targetR) * strength;
+            targetG = 1.0 - (1.0 - targetG) * strength;
+            targetB = 1.0 - (1.0 - targetB) * strength;
         }
 
-        EnableAndApply();
-    }
-
-    private void EnableAndApply()
-    {
-        if (!_active)
+        if (shouldBeActive && !_active)
         {
-            // 首次启用：枚举显示器并保存原始 Ramp
             try
             {
                 EnumerateDisplays();
             }
             catch
             {
-                // 枚举失败（无显示器 / 驱动异常）时静默降级，不崩溃
                 _displays.Clear();
                 return;
             }
             _active = true;
             _reapplyTimer?.Dispose();
-            // 每 10 秒重放一次，抵抗游戏/驱动对 Gamma Ramp 的重置
             _reapplyTimer = new Timer(_ => ApplyRamps(), null, 10000, 10000);
         }
 
-        ApplyRamps();
+        lock (_rampLock)
+        {
+            _targetR = targetR;
+            _targetG = targetG;
+            _targetB = targetB;
+
+            if (immediate || !s.SmoothTransitionEnabled || !_active)
+            {
+                _currentR = targetR;
+                _currentG = targetG;
+                _currentB = targetB;
+                _transitionTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                if (!shouldBeActive)
+                {
+                    Disable();
+                }
+                else
+                {
+                    ApplyRampsWithMultiplier(targetR, targetG, targetB);
+                }
+            }
+            else
+            {
+                _transitionTimer ??= new Timer(OnTransitionTick, null, 0, 25);
+                _transitionTimer.Change(0, 25);
+            }
+        }
+    }
+
+    private void OnTransitionTick(object? state)
+    {
+        lock (_rampLock)
+        {
+            double dR = _targetR - _currentR;
+            double dG = _targetG - _currentG;
+            double dB = _targetB - _currentB;
+
+            bool done = Math.Abs(dR) < 0.005 && Math.Abs(dG) < 0.005 && Math.Abs(dB) < 0.005;
+            if (done)
+            {
+                _currentR = _targetR;
+                _currentG = _targetG;
+                _currentB = _targetB;
+                _transitionTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                if (_targetR >= 0.999 && _targetG >= 0.999 && _targetB >= 0.999)
+                {
+                    Disable();
+                    return;
+                }
+            }
+            else
+            {
+                _currentR += dR * 0.25;
+                _currentG += dG * 0.25;
+                _currentB += dB * 0.25;
+            }
+
+            ApplyRampsWithMultiplier(_currentR, _currentG, _currentB);
+        }
     }
 
     public void Disable()
     {
         if (!_active) return;
         _active = false;
+        _transitionTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         _reapplyTimer?.Dispose();
         _reapplyTimer = null;
         RestoreOriginals();
+        _currentR = 1.0;
+        _currentG = 1.0;
+        _currentB = 1.0;
+    }
+
+    /// <summary>显示器插拔或分辨率变更后重新枚举并挂接新显示器。</summary>
+    public void Reinitialize()
+    {
+        if (_active)
+        {
+            RestoreOriginals();
+            try
+            {
+                EnumerateDisplays();
+            }
+            catch
+            {
+                _displays.Clear();
+                return;
+            }
+            ApplyRamps();
+        }
     }
 
     private void EnumerateDisplays()
@@ -106,6 +198,11 @@ public class GammaRampService : IDisposable
                     var original = new ushort[256 * 3];
                     if (NativeMethods.GetDeviceGammaRamp(hdc, original))
                     {
+                        // 防御上次异常崩溃残留暖色：若 B 通道最大值严重低于 R 通道（<75%），说明读取到的是已被染黄的 Ramp
+                        if (original[255] > 0 && original[512 + 255] < original[255] * 0.75)
+                        {
+                            original = GenerateLinearRamp();
+                        }
                         _displays.Add(new DisplayRamp { DeviceName = dd.DeviceName, Original = original });
                     }
                     NativeMethods.DeleteDC(hdc);
@@ -116,19 +213,21 @@ public class GammaRampService : IDisposable
         }
     }
 
-    /// <summary>把当前设置换算的 Ramp 应用到所有显示器。</summary>
+    /// <summary>把当前色温系数的 Ramp 应用到所有显示器。</summary>
     private void ApplyRamps()
     {
         if (!_active) return;
+        ApplyRampsWithMultiplier(_currentR, _currentG, _currentB);
+    }
 
+    private void ApplyRampsWithMultiplier(double r, double g, double b)
+    {
         try
         {
-            var s = _settings.Data;
-            int kelvin = DayNightSchedule.GetEffectiveColorTemperature(s);
-            ushort[] ramp = BuildRamp(kelvin, s.FilterStrength);
-
             foreach (var display in _displays)
             {
+                // 基于每个显示器自身备份的 ICC/Original 曲线进行乘法缩放，保留用户校色配置
+                ushort[] ramp = BuildRampForDisplay(display.Original, r, g, b);
                 var hdc = NativeMethods.CreateDC(null, display.DeviceName, null, IntPtr.Zero);
                 if (hdc == IntPtr.Zero) continue;
                 NativeMethods.SetDeviceGammaRamp(hdc, ramp);
@@ -142,9 +241,29 @@ public class GammaRampService : IDisposable
     }
 
     /// <summary>
-    /// 由色温与强度生成 Gamma Ramp。
-    /// 使用 Tanner Helland 黑体近似（f.lux 同款算法）得到 R/G/B 倍率，
-    /// 再按强度向 1.0（不调整）插值，最后生成线性 Ramp。
+    /// 基于指定显示器的原始 Ramp（或线性回退）乘以 R/G/B 色温衰减倍率。
+    /// 完整保留用户显示器自带的 ICC 色彩校准曲线。
+    /// </summary>
+    internal static ushort[] BuildRampForDisplay(ushort[]? original, double r, double g, double b)
+    {
+        var ramp = new ushort[256 * 3];
+        bool useOriginal = original != null && original.Length == 256 * 3 && original[255] > 0;
+
+        for (int i = 0; i < 256; i++)
+        {
+            double baseR = useOriginal ? original![i] : (i * 257.0);
+            double baseG = useOriginal ? original![256 + i] : (i * 257.0);
+            double baseB = useOriginal ? original![512 + i] : (i * 257.0);
+
+            ramp[i] = (ushort)Math.Clamp((int)Math.Round(baseR * r), 0, 65535);
+            ramp[256 + i] = (ushort)Math.Clamp((int)Math.Round(baseG * g), 0, 65535);
+            ramp[512 + i] = (ushort)Math.Clamp((int)Math.Round(baseB * b), 0, 65535);
+        }
+        return ramp;
+    }
+
+    /// <summary>
+    /// 由色温与强度生成线性 Gamma Ramp（兼容保留）。
     /// </summary>
     internal static ushort[] BuildRamp(int kelvin, double strength)
     {
@@ -156,15 +275,57 @@ public class GammaRampService : IDisposable
         g = 1.0 - (1.0 - g) * strength;
         b = 1.0 - (1.0 - b) * strength;
 
+        return BuildRampForDisplay(null, r, g, b);
+    }
+
+    /// <summary>
+    /// 重置所有显示器为标准单调线性 sRGB Ramp（用于解除异常暖色锁死或手动一键急救恢复）。
+    /// </summary>
+    public void ResetToStandardSRgb()
+    {
+        try
+        {
+            var linear = GenerateLinearRamp();
+            uint i = 0;
+            while (true)
+            {
+                var dd = new NativeMethods.DISPLAY_DEVICE { cb = (uint)Marshal.SizeOf<NativeMethods.DISPLAY_DEVICE>() };
+                if (!NativeMethods.EnumDisplayDevices(null, i, ref dd, 0))
+                    break;
+
+                if ((dd.StateFlags & NativeMethods.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0)
+                {
+                    var hdc = NativeMethods.CreateDC(null, dd.DeviceName, null, IntPtr.Zero);
+                    if (hdc != IntPtr.Zero)
+                    {
+                        NativeMethods.SetDeviceGammaRamp(hdc, linear);
+                        NativeMethods.DeleteDC(hdc);
+                    }
+                }
+                i++;
+            }
+
+            foreach (var d in _displays)
+            {
+                Array.Copy(linear, d.Original, linear.Length);
+            }
+        }
+        catch
+        {
+            // 忽略
+        }
+    }
+
+    /// <summary>生成标准单调递增线性 sRGB Ramp。</summary>
+    public static ushort[] GenerateLinearRamp()
+    {
         var ramp = new ushort[256 * 3];
         for (int i = 0; i < 256; i++)
         {
-            int value = (int)Math.Round(i * 257.0 * r); // 0..255 → 0..65535
-            ramp[i] = (ushort)Math.Clamp(value, 0, 65535);
-            value = (int)Math.Round(i * 257.0 * g);
-            ramp[256 + i] = (ushort)Math.Clamp(value, 0, 65535);
-            value = (int)Math.Round(i * 257.0 * b);
-            ramp[512 + i] = (ushort)Math.Clamp(value, 0, 65535);
+            ushort val = (ushort)Math.Clamp(i * 257, 0, 65535);
+            ramp[i] = val;
+            ramp[256 + i] = val;
+            ramp[512 + i] = val;
         }
         return ramp;
     }
@@ -223,6 +384,8 @@ public class GammaRampService : IDisposable
 
     public void Dispose()
     {
+        _transitionTimer?.Dispose();
+        _transitionTimer = null;
         Disable();
     }
 }

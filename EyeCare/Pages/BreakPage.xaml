@@ -61,6 +61,9 @@
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="16">
                     <TextBlock Text="高级选项" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <ToggleSwitch x:Name="PreBreakHeadsUpSwitch" Header="休息前 30 秒微提示（浮窗缓冲，支持推迟 5 分钟）" Toggled="PreBreakHeadsUpSwitch_Toggled"/>
+                    <ToggleSwitch x:Name="AntiImpulsiveSwitch" Header="防冲动跳过模式（休息前 5 秒锁定跳过按钮）" Toggled="AntiImpulsiveSwitch_Toggled"/>
+                    <ToggleSwitch x:Name="BreakSoundSwitch" Header="休息完成提示音（轻柔声音提醒恢复工作）" Toggled="BreakSoundSwitch_Toggled"/>
                     <ToggleSwitch x:Name="SmartPauseSwitch" Header="智能暂停（离开电脑时自动暂停计时）" Toggled="SmartPauseSwitch_Toggled"/>
                     <ToggleSwitch x:Name="EnforceSwitch" Header="强制休息（休息时全屏覆盖不可跳过）" Toggled="EnforceSwitch_Toggled"/>
                     <Button x:Name="BreakNowButton" Content="💆 立即休息" HorizontalAlignment="Left" Click="BreakNowButton_Click" Style="{StaticResource AccentButtonStyle}"/>

@@ -9,7 +9,30 @@
           Background="Transparent"
           PointerPressed="RootGrid_PointerPressed"
           DoubleTapped="RootGrid_DoubleTapped"
-          ToolTipService.ToolTip="双击打开护眼助手 · 拖动可移动位置">
+          PointerEntered="RootGrid_PointerEntered"
+          PointerExited="RootGrid_PointerExited"
+          ToolTipService.ToolTip="双击打开护眼助手 · 拖动可移动位置 · 右键弹出选项">
+        <Grid.ContextFlyout>
+            <MenuFlyout>
+                <MenuFlyoutItem Text="打开护眼助手" Click="MenuOpen_Click">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE8A7;"/>
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <ToggleMenuFlyoutItem x:Name="MenuCompactToggle" Text="紧凑胶囊模式" Click="MenuCompactToggle_Click"/>
+                <MenuFlyoutItem Text="重置位置到右上角" Click="MenuResetPosition_Click">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE777;"/>
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="隐藏桌面小组件" Click="MenuHideWidget_Click">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE711;"/>
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuFlyout>
+        </Grid.ContextFlyout>
         <Border x:Name="CardBorder"
                 Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -51,7 +74,7 @@
                              Value="0" VerticalAlignment="Center"/>
 
                 <!-- 底部：剩余时间 + 操作提示 -->
-                <Grid>
+                <Grid x:Name="BottomInfoGrid">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -63,6 +86,21 @@
                                Opacity="0.6"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- 悬停快捷微操作栏 -->
+                <Grid x:Name="HoverActionGrid" Visibility="Collapsed" Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="⏸ 暂停" FontSize="11" Padding="4,2"
+                            HorizontalAlignment="Stretch" Click="HoverPause_Click"/>
+                    <Button Grid.Column="1" Content="🌙 蓝光" FontSize="11" Padding="4,2" Margin="4,0"
+                            HorizontalAlignment="Stretch" Click="HoverBlueLight_Click"/>
+                    <Button Grid.Column="2" Content="💆 休息" FontSize="11" Padding="4,2"
+                            HorizontalAlignment="Stretch" Click="HoverBreakNow_Click"/>
                 </Grid>
             </StackPanel>
         </Border>

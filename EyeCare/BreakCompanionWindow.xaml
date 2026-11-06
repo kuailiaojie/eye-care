@@ -1,0 +1,13 @@
+<Window
+    x:Class="EyeCare.BreakCompanionWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#E6080A12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+            <TextBlock Text="👀 护眼休息中" FontSize="28" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Foreground="#CCFFFFFF"/>
+            <TextBlock Text="请眺望远方放松双眼 · 稍后自动恢复" FontSize="14"
+                       HorizontalAlignment="Center" Foreground="#88FFFFFF"/>
+        </StackPanel>
+    </Grid>
+</Window>

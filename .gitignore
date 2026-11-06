@@ -6,6 +6,7 @@ publish/
 
 # MSIX packaging output (tools/build-msix.ps1, tools/prepare-store.ps1)
 msix/
+dist/
 
 # Visual Studio
 .vs/

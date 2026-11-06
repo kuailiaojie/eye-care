@@ -17,6 +17,46 @@
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="场景预设" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold"/>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="ProfileOfficeBtn" Grid.Column="0" HorizontalAlignment="Stretch" Padding="8,12" Click="ProfileOffice_Click">
+                            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                <TextBlock Text="💻 办公" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="5000K · 90%" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ProfileReadingBtn" Grid.Column="1" HorizontalAlignment="Stretch" Padding="8,12" Click="ProfileReading_Click">
+                            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                <TextBlock Text="📖 阅读" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="4200K · 80%" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ProfileSleepBtn" Grid.Column="2" HorizontalAlignment="Stretch" Padding="8,12" Click="ProfileSleep_Click">
+                            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                <TextBlock Text="🌙 助眠" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="3200K · 65%" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ProfileOriginalBtn" Grid.Column="3" HorizontalAlignment="Stretch" Padding="8,12" Click="ProfileOriginal_Click">
+                            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                <TextBlock Text="🎬 原色" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="6500K · 还原" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="16">
                     <ToggleSwitch x:Name="BlueLightSwitch" Header="蓝光过滤（暖色调）" Toggled="BlueLightSwitch_Toggled"/>
                     <InfoBar IsOpen="True" Severity="Informational"
