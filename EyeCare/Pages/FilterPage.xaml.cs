@@ -79,7 +79,8 @@ public sealed partial class FilterPage : Page
     private static void HighlightButton(Button btn, bool active)
     {
         if (btn == null) return;
-        btn.Style = (Style)Application.Current.Resources[active ? "AccentButtonStyle" : "DefaultButtonStyle"];
+        var style = Helpers.ThemeResources.ResolveStyle(active ? "AccentButtonStyle" : "DefaultButtonStyle");
+        if (style is not null) btn.Style = style;
     }
 
     private void ProfileOffice_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Office);

@@ -54,7 +54,7 @@ EyeCare/
 ├── BreakCompanionWindow.xaml(.cs)   # 副屏沉浸遮蔽窗口（多显示器完全覆盖）
 ├── PreBreakToastWindow.xaml(.cs)    # 休息前 30 秒温和微提示浮窗（支持推迟 5 分钟）
 ├── WidgetWindow.xaml(.cs)           # 桌面小组件窗口（悬停操作栏 / 紧凑胶囊模式）
-├── ReadingRulerWindow.xaml(.cs)     # 阅读聚焦视线标尺窗口（Alt+R 全屏聚焦）
+├── ReadingRulerWindow.cs            # 阅读聚焦视线标尺（原生分层窗口，Alt+R 全屏聚焦）
 ├── MicroNudgeWindow.xaml(.cs)       # 眨眼润眼与坐姿定时微气泡（3 秒自动隐退）
 ├── Models/
 │   └── AppSettings.cs               # 设置数据模型（预设/快捷键/避让/统计/小工具）

@@ -34,11 +34,13 @@ public class FilterOverlayService
     private double _targetDimAlpha = 0;
     private Timer? _transitionTimer;
     private readonly object _transitionLock = new();
+    private List<NativeMethods.RECT> _hardwareDimmedRects = new();
 
     private class MonitorOverlay
     {
         public IntPtr BlueLight { get; set; }
         public IntPtr Dim { get; set; }
+        public NativeMethods.RECT Rect { get; set; }
     }
 
     // 保持委托引用防止被 GC 回收
@@ -97,6 +99,7 @@ public class FilterOverlayService
 
         var overlay = new MonitorOverlay
         {
+            Rect = rect,
             BlueLight = CreateOverlayWindow(BlueLightClass, x, y, w, h),
             Dim = CreateOverlayWindow(DimClass, x, y, w, h)
         };
@@ -184,10 +187,18 @@ public class FilterOverlayService
             targetDimAlpha = (int)Math.Clamp((1.0 - s.Brightness) * 255.0, 0, 255);
         }
 
+        // 已由 DDC/CI 硬件调暗的显示器不再叠加软件遮罩，避免双重变暗。
+        var hardwareDimmed = new List<NativeMethods.RECT>();
+        if (s.DdcCiBrightnessEnabled && App.DdcCi is not null)
+        {
+            hardwareDimmed.AddRange(App.DdcCi.HardwareDimmedRects);
+        }
+
         lock (_transitionLock)
         {
             _targetBlueAlpha = targetBlueAlpha;
             _targetDimAlpha = targetDimAlpha;
+            _hardwareDimmedRects = hardwareDimmed;
 
             if (immediate || !s.SmoothTransitionEnabled)
             {
@@ -242,10 +253,22 @@ public class FilterOverlayService
             }
             if (overlay.Dim != IntPtr.Zero)
             {
-                NativeMethods.SetLayeredWindowAttributes(overlay.Dim, 0, dimAlpha, NativeMethods.LWA_ALPHA);
-                NativeMethods.ShowWindow(overlay.Dim, dimAlpha > 0 ? NativeMethods.SW_SHOWNOACTIVATE : NativeMethods.SW_HIDE);
+                // 该显示器已由硬件背光调暗时，软件遮罩保持全透明。
+                byte monitorDim = IsHardwareDimmed(overlay.Rect) ? (byte)0 : dimAlpha;
+                NativeMethods.SetLayeredWindowAttributes(overlay.Dim, 0, monitorDim, NativeMethods.LWA_ALPHA);
+                NativeMethods.ShowWindow(overlay.Dim, monitorDim > 0 ? NativeMethods.SW_SHOWNOACTIVATE : NativeMethods.SW_HIDE);
             }
         }
+    }
+
+    private bool IsHardwareDimmed(NativeMethods.RECT rect)
+    {
+        foreach (var r in _hardwareDimmedRects)
+        {
+            if (r.Left == rect.Left && r.Top == rect.Top && r.Right == rect.Right && r.Bottom == rect.Bottom)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -29,15 +29,18 @@ public sealed partial class BreakWindow : Window
     {
         InitializeComponent();
         App.BreakReminder.BreakTick += OnBreakTick;
+        Closed += (_, _) =>
+        {
+            _breathTimer?.Stop();
+            _breathTimer = null;
+            App.BreakReminder.BreakTick -= OnBreakTick;
+            CloseCompanionWindows();
+        };
         ConfigureWindow();
     }
 
     private void ConfigureWindow()
     {
-        var hwnd = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
-
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.IsResizable = false;
@@ -46,6 +49,16 @@ public sealed partial class BreakWindow : Window
             presenter.IsAlwaysOnTop = true;
             presenter.SetBorderAndTitleBar(false, false);
         }
+
+        AppWindow.IsShownInSwitchers = false;
+        UpdateDisplayBounds();
+    }
+
+    private void UpdateDisplayBounds()
+    {
+        var hwnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+        var displayArea = DisplayArea.Primary ?? DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
 
         if (displayArea is not null)
         {
@@ -56,12 +69,14 @@ public sealed partial class BreakWindow : Window
 
     public void Show(bool longBreak)
     {
+        UpdateDisplayBounds();
         BreakTypeText.Text = longBreak ? "长休息 · 好好放松一下" : "短休息 · 20-20-20 法则";
 
         // 防冲动跳过策略
         if (App.Settings.Data.EnforceBreak)
         {
             SkipButton.Visibility = Visibility.Collapsed;
+            _skipLockSeconds = 0;
         }
         else
         {
@@ -74,6 +89,8 @@ public sealed partial class BreakWindow : Window
             }
             else
             {
+                // 关闭防冲动跳过时必须清零，否则呼吸动画每秒会把按钮文字改回倒计时。
+                _skipLockSeconds = 0;
                 SkipButton.IsEnabled = true;
                 SkipButton.Content = "继续工作（跳过）";
             }
@@ -129,15 +146,17 @@ public sealed partial class BreakWindow : Window
         _breathStep = 0;
         _breathTimer?.Stop();
         _breathTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _breathTimer.Tick += (_, _) => UpdateBreathStep();
+        _breathTimer.Tick += (_, _) =>
+        {
+            _breathStep = (_breathStep + 1) % 19;
+            UpdateBreathStep(isTimerTick: true);
+        };
         _breathTimer.Start();
-        UpdateBreathStep();
+        UpdateBreathStep(isTimerTick: false);
     }
 
-    private void UpdateBreathStep()
+    private void UpdateBreathStep(bool isTimerTick)
     {
-        _breathStep = (_breathStep + 1) % 19; // 0..3 (4s), 4..10 (7s), 11..18 (8s)
-
         if (_breathStep < 4)
         {
             // 吸气 4 秒 (圆环逐渐放大)
@@ -166,8 +185,8 @@ public sealed partial class BreakWindow : Window
             BreathScale.ScaleY = Math.Max(1.0, scale);
         }
 
-        // 处理防冲动跳过倒计时
-        if (_skipLockSeconds > 0)
+        // 处理防冲动跳过倒计时（仅在计时器每秒跳变时递减）
+        if (isTimerTick && _skipLockSeconds > 0)
         {
             _skipLockSeconds--;
             if (_skipLockSeconds <= 0)
@@ -182,13 +201,14 @@ public sealed partial class BreakWindow : Window
         }
     }
 
-    public void HideBreak()
+    public void HideBreak(bool completed)
     {
         _breathTimer?.Stop();
         _breathTimer = null;
         CloseCompanionWindows();
 
-        if (App.Settings.Data.BreakSoundEnabled)
+        // 只有自然结束的休息才播放提示音；跳过休息不应播放「休息完成」铃声。
+        if (completed && App.Settings.Data.BreakSoundEnabled)
         {
             PlayGentleBell();
         }

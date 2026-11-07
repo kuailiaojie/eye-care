@@ -27,14 +27,6 @@ public sealed partial class MicroNudgeWindow : Window
     private int _stage = 0; // 0: fadeIn, 1: hold, 2: fadeOut
     private int _holdTicks = 0;
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-    private const int GWL_EXSTYLE = -20;
-
     public MicroNudgeWindow()
     {
         InitializeComponent();
@@ -58,23 +50,38 @@ public sealed partial class MicroNudgeWindow : Window
             presenter.IsMinimizable = false;
         }
 
-        // 不显示在任务栏
-        int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOOLWINDOW);
+        appWindow.IsShownInSwitchers = false;
 
-        const int width = 310;
-        const int height = 66;
+        // 鼠标穿透、不抢前台焦点、不显示在任务栏（分层样式与阅读标尺保持一致，确保透明合成）
+        nint exStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE);
+        NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, exStyle |
+            NativeMethods.WS_EX_TOOLWINDOW |
+            NativeMethods.WS_EX_NOACTIVATE |
+            NativeMethods.WS_EX_TRANSPARENT |
+            NativeMethods.WS_EX_LAYERED);
+
+        double scale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+        if (scale <= 0) scale = 1.0;
+        int widthPhys = (int)Math.Round(310 * scale);
+        int heightPhys = (int)Math.Round(66 * scale);
+        int marginX = (int)Math.Round(24 * scale);
+        int marginY = (int)Math.Round(36 * scale);
 
         // 定位到主屏右下角
-        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
-        var wa = displayArea.WorkArea;
-        int x = wa.X + wa.Width - width - 24;
-        int y = wa.Y + wa.Height - height - 36;
-        appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+        var displayArea = DisplayArea.Primary ?? DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        if (displayArea != null)
+        {
+            var wa = displayArea.WorkArea;
+            int x = wa.X + wa.Width - widthPhys - marginX;
+            int y = wa.Y + wa.Height - heightPhys - marginY;
+            appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, widthPhys, heightPhys));
+        }
 
         _animTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
         _animTimer.Tick += OnAnimTick;
         _animTimer.Start();
+
+        Closed += (_, _) => _animTimer.Stop();
     }
 
     private void OnAnimTick(object? sender, object e)

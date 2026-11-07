@@ -1,6 +1,6 @@
 # Local MSIX and Portable Package Build Script
 param(
-    [string]$Version = "1.1.3.0",
+    [string]$Version = "1.1.4.0",
     [string]$SingleArch = "",
     [switch]$SkipBundle,
     [bool]$BuildPortable = $true

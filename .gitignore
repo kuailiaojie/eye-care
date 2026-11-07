@@ -33,3 +33,7 @@ packages/
 # Python
 __pycache__/
 *.pyc
+
+# Local agent scratch notes / build logs
+.agents/
+msix-build.log

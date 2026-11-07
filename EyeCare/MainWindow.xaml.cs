@@ -40,6 +40,13 @@ public sealed partial class MainWindow : Window
                 AppWindow.Hide();
             }
         };
+
+        // 主窗口被真正关闭时（如未勾选最小化到托盘或退出时），级联关闭关联的休息窗口
+        Closed += (_, _) =>
+        {
+            _breakWindow?.Close();
+            _breakWindow = null;
+        };
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -75,8 +82,8 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>隐藏休息窗口。</summary>
-    internal void HideBreak()
+    internal void HideBreak(bool completed)
     {
-        _breakWindow?.HideBreak();
+        _breakWindow?.HideBreak(completed);
     }
 }

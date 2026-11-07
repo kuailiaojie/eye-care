@@ -147,22 +147,20 @@ public class EyeHealthStatsStore
             while (true)
             {
                 string key = cur.ToString("yyyy-MM-dd");
-                if (_data.Records.TryGetValue(key, out var r))
+                if (_data.Records.TryGetValue(key, out var r) && r.ScreenMinutes >= 15 && r.CompletedBreaks >= 1)
                 {
-                    if (r.ScreenMinutes >= 15 && r.CompletedBreaks >= 1)
-                    {
-                        streak++;
-                        cur = cur.AddDays(-1);
-                        continue;
-                    }
-                    else if (cur == DateTime.Today)
-                    {
-                        // 今天如果还在进行中，不截断之前的连续打卡纪录，检查昨天
-                        cur = cur.AddDays(-1);
-                        continue;
-                    }
+                    streak++;
+                    cur = cur.AddDays(-1);
                 }
-                break;
+                else if (cur == DateTime.Today)
+                {
+                    // 今天如果还在进行中（尚未达到 15 分钟 + 1 次休息），不截断历史连续打卡，继续从昨天往前统计
+                    cur = cur.AddDays(-1);
+                }
+                else
+                {
+                    break;
+                }
             }
             return streak;
         }

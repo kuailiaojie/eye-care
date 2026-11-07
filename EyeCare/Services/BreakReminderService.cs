@@ -29,8 +29,8 @@ public class BreakReminderService : IDisposable
     /// <summary>休息前预告（参数为剩余预警秒数，如 30）。</summary>
     public event Action<int>? PreBreakNotice;
 
-    /// <summary>休息结束，恢复工作。</summary>
-    public event Action? BreakFinished;
+    /// <summary>休息结束，恢复工作（参数表示是否完整完成，false 表示被跳过）。</summary>
+    public event Action<bool>? BreakFinished;
 
     /// <summary>完成一次完整休息（未被跳过）。</summary>
     public event Action? BreakCompleted;
@@ -112,7 +112,7 @@ public class BreakReminderService : IDisposable
         _elapsedWorkSeconds = 0;
         _remainingBreakSeconds = 0;
         BreakSkipped?.Invoke();
-        BreakFinished?.Invoke();
+        BreakFinished?.Invoke(false);
     }
 
     /// <summary>手动重置工作计时。</summary>
@@ -151,7 +151,7 @@ public class BreakReminderService : IDisposable
                 _onBreak = false;
                 _elapsedWorkSeconds = 0;
                 BreakCompleted?.Invoke();
-                BreakFinished?.Invoke();
+                BreakFinished?.Invoke(true);
             }
             return;
         }

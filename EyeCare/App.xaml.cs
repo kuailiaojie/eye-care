@@ -62,6 +62,7 @@ public partial class App : Application
     private static MainWindow? _window;
     private static PreBreakToastWindow? _preBreakToast;
     private static ReadingRulerWindow? _readingRulerWindow;
+    private static MicroNudgeWindow? _microNudgeWindow;
     private static System.Threading.Timer? _microNudgeTimer;
     private static bool _isExiting;
 
@@ -74,38 +75,91 @@ public partial class App : Application
     /// <summary>同时刷新覆盖层、Gamma 校正与硬件背光（所有过滤设置变更统一走这里）。</summary>
     public static void ApplyFilters()
     {
+        // 先更新硬件背光，覆盖层再据此判断是否还需要叠加软件变暗，避免双重调暗。
+        ApplyHardwareBrightness();
+
         FilterOverlay?.ApplySettings();
         GammaRamp?.ApplySettings();
+    }
 
-        // 若启用了硬件背光控制，优先尝试调节物理显示器背光
-        if (Settings?.Data.BrightnessEnabled == true && Settings.Data.DdcCiBrightnessEnabled)
+    /// <summary>按当前设置调节或恢复物理显示器硬件背光。</summary>
+    private static void ApplyHardwareBrightness()
+    {
+        var s = Settings?.Data;
+        if (s is null) return;
+
+        if (s.DdcCiBrightnessEnabled && s.BrightnessEnabled)
+            DdcCi?.TrySetHardwareBrightness(s.Brightness);
+        else
+            DdcCi?.RestoreHardwareBrightness();
+    }
+
+    /// <summary>显式设置阅读聚焦标尺窗口状态并同步配置。</summary>
+    public static void SetReadingRuler(bool enable)
+    {
+        UiDispatcher?.TryEnqueue(() =>
         {
-            DdcCi?.TrySetHardwareBrightness(Settings.Data.Brightness);
-        }
+            if (enable)
+            {
+                bool created = false;
+                if (_readingRulerWindow is null)
+                {
+                    var win = new ReadingRulerWindow();
+                    win.Closed += (_, _) =>
+                    {
+                        if (ReferenceEquals(_readingRulerWindow, win))
+                            _readingRulerWindow = null;
+
+                        // 退出流程中不要再弹托盘气泡；正常关闭时同步开关状态
+                        if (!_isExiting && Settings.Data.ReadingRulerEnabled)
+                        {
+                            Settings.Data.ReadingRulerEnabled = false;
+                            Settings.Save();
+                            TrayIcon?.Notify("视线标尺", "已关闭阅读聚焦视线标尺");
+                        }
+                    };
+                    _readingRulerWindow = win;
+                    win.Activate();
+                    created = true;
+                }
+
+                if (!Settings.Data.ReadingRulerEnabled)
+                {
+                    Settings.Data.ReadingRulerEnabled = true;
+                    Settings.Save();
+                }
+
+                if (created)
+                    TrayIcon?.Notify("视线标尺", "已开启阅读聚焦视线标尺（按 Alt+R 可快速关闭）");
+            }
+            else
+            {
+                bool wasActive = Settings.Data.ReadingRulerEnabled || _readingRulerWindow is not null;
+
+                // 先同步开关状态再关窗：Closed 处理器看到已关闭状态后不会重复发通知。
+                if (Settings.Data.ReadingRulerEnabled)
+                {
+                    Settings.Data.ReadingRulerEnabled = false;
+                    Settings.Save();
+                }
+
+                if (_readingRulerWindow is not null)
+                {
+                    var win = _readingRulerWindow;
+                    _readingRulerWindow = null;
+                    try { win.Close(); } catch { }
+                }
+
+                if (wasActive)
+                    TrayIcon?.Notify("视线标尺", "已关闭阅读聚焦视线标尺");
+            }
+        });
     }
 
     /// <summary>切换阅读聚焦标尺窗口。</summary>
     public static void ToggleReadingRuler()
     {
-        UiDispatcher?.TryEnqueue(() =>
-        {
-            if (_readingRulerWindow != null)
-            {
-                _readingRulerWindow.Close();
-                _readingRulerWindow = null;
-                Settings.Data.ReadingRulerEnabled = false;
-                TrayIcon?.Notify("视线标尺", "已关闭阅读聚焦视线标尺");
-            }
-            else
-            {
-                _readingRulerWindow = new ReadingRulerWindow();
-                _readingRulerWindow.Activate();
-                _readingRulerWindow.Closed += (_, _) => _readingRulerWindow = null;
-                Settings.Data.ReadingRulerEnabled = true;
-                TrayIcon?.Notify("视线标尺", "已开启阅读聚焦视线标尺（按 Alt+R 可快速关闭）");
-            }
-            Settings.Save();
-        });
+        SetReadingRuler(_readingRulerWindow is null);
     }
 
     /// <summary>弹出微型润眼 / 坐姿体态温馨提示气泡。</summary>
@@ -117,10 +171,25 @@ public partial class App : Application
             var s = Settings?.Data;
             if (s != null && s.MicroNudgeEnabled && !FullscreenPause.IsFullscreenActive && !BreakReminder.IsOnBreak)
             {
+                try { _microNudgeWindow?.Close(); } catch { }
+
                 var nudge = new MicroNudgeWindow();
+                // 仅当字段仍指向本实例时才清空，避免旧窗口延迟触发 Closed 把新窗口引用清掉。
+                nudge.Closed += (_, _) =>
+                {
+                    if (ReferenceEquals(_microNudgeWindow, nudge)) _microNudgeWindow = null;
+                };
+                _microNudgeWindow = nudge;
                 nudge.Activate();
             }
         });
+    }
+
+    /// <summary>关闭当前微型气泡提示。</summary>
+    public static void DismissMicroNudge()
+    {
+        try { _microNudgeWindow?.Close(); } catch { }
+        _microNudgeWindow = null;
     }
 
     /// <summary>显示并激活主窗口（托盘 / 小组件双击时调用）。
@@ -128,15 +197,28 @@ public partial class App : Application
     public static void ShowMainWindow()
     {
         if (_isExiting) return;
+        EnsureMainWindow(activate: true);
+    }
+
+    /// <summary>确保主窗口存在（需要时重建），并统一订阅 Closed 事件。
+    /// 主窗口重建后若不再订阅 Closed，关闭后 _window 会残留已销毁窗口引用，托盘再次打开时崩溃。</summary>
+    private static MainWindow EnsureMainWindow(bool activate)
+    {
         if (_window is null)
         {
-            _window = new MainWindow();
-            _window.Activate();
+            var win = new MainWindow();
+            win.Closed += (_, _) =>
+            {
+                if (!_isExiting && ReferenceEquals(_window, win))
+                    _window = null;
+            };
+            _window = win;
         }
-        else
-        {
+
+        if (activate)
             _window.ShowAndActivate();
-        }
+
+        return _window;
     }
 
     /// <summary>从托盘切换蓝光过滤。</summary>
@@ -175,9 +257,14 @@ public partial class App : Application
     {
         if (_isExiting) return;
         _preBreakToast?.Dismiss();
-        _preBreakToast = new PreBreakToastWindow();
-        _preBreakToast.Activate();
-        _preBreakToast.Closed += (_, _) => { _preBreakToast = null; };
+
+        var toast = new PreBreakToastWindow();
+        toast.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_preBreakToast, toast)) _preBreakToast = null;
+        };
+        _preBreakToast = toast;
+        toast.Activate();
     }
 
     public static void DismissPreBreakToast()
@@ -189,12 +276,11 @@ public partial class App : Application
     private static void ShowBreakWindow(bool longBreak)
     {
         DismissPreBreakToast();
-        // 主窗口被关闭时先重建，再展示休息窗口
-        if (_window is null) ShowMainWindow();
-        _window?.ShowBreak(longBreak);
+        // 主窗口被关闭时重建，但只作为休息窗口的宿主，不主动弹出设置界面抢走焦点。
+        EnsureMainWindow(activate: false).ShowBreak(longBreak);
     }
 
-    private static void HideBreakWindow() => _window?.HideBreak();
+    private static void HideBreakWindow(bool completed) => _window?.HideBreak(completed);
 
     /// <summary>退出应用（托盘菜单「退出」）。</summary>
     public static void ExitApp()
@@ -202,7 +288,14 @@ public partial class App : Application
         if (_isExiting) return;
         _isExiting = true;
         _microNudgeTimer?.Dispose();
-        _readingRulerWindow?.Close();
+        _microNudgeTimer = null;
+        DismissMicroNudge();
+        DismissPreBreakToast();
+        if (_readingRulerWindow is not null)
+        {
+            try { _readingRulerWindow.Close(); } catch { }
+            _readingRulerWindow = null;
+        }
         Hotkeys?.Dispose();
         AppBypass?.Dispose();
         DdcCi?.Dispose();
@@ -286,12 +379,8 @@ public partial class App : Application
         Hotkeys = new Services.GlobalHotkeyService(Settings);
         Trace("services created");
 
-        // 全屏状态变化时刷新过滤层与 Gamma 校正
-        FullscreenPause.StateChanged += () => UiDispatcher.TryEnqueue(() =>
-        {
-            FilterOverlay.ApplySettings();
-            GammaRamp.ApplySettings();
-        });
+        // 全屏状态变化时统一刷新过滤层、Gamma 校正与硬件背光
+        FullscreenPause.StateChanged += () => UiDispatcher.TryEnqueue(ApplyFilters);
 
         // 色彩敏感白名单程序切换时平滑淡出/恢复滤镜
         AppBypass.StateChanged += () => UiDispatcher.TryEnqueue(ApplyFilters);
@@ -312,26 +401,25 @@ public partial class App : Application
         // 先创建托盘服务，供后续订阅
         TrayIcon = new Services.TrayIconService(Settings);
 
-        // 应用设置到服务
-        FilterOverlay.ApplySettings();
-        GammaRamp.ApplySettings();
+        // 应用设置到服务（覆盖层 / Gamma / 硬件背光统一走 ApplyFilters）
+        ApplyFilters();
         BreakReminder.ApplySettings();
         if (Settings.Data.AutoStartEnabled)
             Startup.EnableAutoStart();
         else
             Startup.DisableAutoStart();
 
+        Settings.Data.ReadingRulerEnabled = false;
+
         // 启动全屏检测
         FullscreenPause.Start();
         Trace("services started");
 
-        // 创建主窗口
-        _window = new MainWindow();
+        // 创建主窗口（统一由 EnsureMainWindow 创建并订阅 Closed，重建后引用不会失效）
+        var mainWindow = EnsureMainWindow(activate: false);
         Trace("MainWindow created");
-        _window.Activate();
+        mainWindow.Activate();
         Trace("MainWindow activated");
-        // 主窗口被关闭（关闭到托盘被关闭时）置空引用，托盘再次打开时自动重建
-        _window.Closed += (_, _) => { if (!_isExiting) _window = null; };
 
         // 托盘事件只订阅一次（主窗口可安全重建，不会重复订阅导致多次触发）
         TrayIcon.OpenRequested += () => UiDispatcher.TryEnqueue(ShowMainWindow);
@@ -351,7 +439,7 @@ public partial class App : Application
         // 休息提醒事件（后台计时线程 → 调度到 UI 线程）
         BreakReminder.PreBreakNotice += (seconds) => UiDispatcher.TryEnqueue(ShowPreBreakToast);
         BreakReminder.BreakStarted += (bool longBreak) => UiDispatcher.TryEnqueue(() => ShowBreakWindow(longBreak));
-        BreakReminder.BreakFinished += () => UiDispatcher.TryEnqueue(HideBreakWindow);
+        BreakReminder.BreakFinished += completed => UiDispatcher.TryEnqueue(() => HideBreakWindow(completed));
         BreakReminder.WorkTick += (elapsed, total) =>
         {
             int remainMin = Math.Max(0, (total - elapsed + 59) / 60);

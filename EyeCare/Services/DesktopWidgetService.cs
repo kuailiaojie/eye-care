@@ -13,31 +13,32 @@ public class DesktopWidgetService : IDisposable
     private WidgetWindow? _window;
     private Timer? _timer;
     private bool _visible;
+    private bool _lastCompactMode;
+    private bool _disposed;
 
     public DesktopWidgetService(SettingsService settings)
     {
         _settings = settings;
     }
 
-    /// <summary>启动服务：创建小组件（如启用）并开始每秒刷新。</summary>
+    /// <summary>启动服务：订阅设置变化，并同步小组件的显示状态。</summary>
     public void Start()
     {
+        _settings.SettingsChanged -= OnSettingsChanged;
         _settings.SettingsChanged += OnSettingsChanged;
-        _timer = new Timer(OnTick, null, 0, 1000);
-        ApplyVisibility();
+        App.UiDispatcher.TryEnqueue(ApplyVisibility);
     }
 
-    /// <summary>隐藏并停止小组件显示。</summary>
+    /// <summary>隐藏小组件。</summary>
     public void Stop()
     {
-        App.UiDispatcher.TryEnqueue(() =>
-        {
-            if (_window is not null && _visible)
-            {
-                _window.AppWindow.Hide();
-                _visible = false;
-            }
-        });
+        App.UiDispatcher.TryEnqueue(HideWidget);
+    }
+
+    /// <summary>重置小组件到当前主屏工作区右上角默认位置。</summary>
+    public void ResetPosition()
+    {
+        App.UiDispatcher.TryEnqueue(() => _window?.ResetToDefaultPosition());
     }
 
     /// <summary>立即刷新小组件状态。</summary>
@@ -53,32 +54,79 @@ public class DesktopWidgetService : IDisposable
 
     private void ApplyVisibility()
     {
-        if (_settings.Data.DesktopWidgetEnabled)
+        if (_disposed) return;
+
+        var s = _settings.Data;
+        if (s.DesktopWidgetEnabled)
         {
-            if (_window is null)
-            {
-                // 位置由 WidgetWindow 在 Loaded 后自行恢复（默认右上角或自定义位置）
-                _window = new WidgetWindow();
-                _window.Activate();
-                _visible = true;
-            }
-            else if (!_visible)
+            EnsureWindow();
+
+            if (_window is not null && !_visible)
             {
                 _window.AppWindow.Show();
                 _window.KeepTopmost();
                 _visible = true;
             }
+
+            EnsureTimer();
+
+            // 设置页切换紧凑模式后立即作用于已存在的窗口（无需重启应用）。
+            if (_window is not null && s.WidgetCompactMode != _lastCompactMode)
+            {
+                _lastCompactMode = s.WidgetCompactMode;
+                _window.RefreshLayout();
+            }
         }
-        else if (_window is not null && _visible)
+        else
+        {
+            StopTimer();
+            HideWidget();
+        }
+    }
+
+    private void EnsureWindow()
+    {
+        if (_window is not null) return;
+
+        var win = new WidgetWindow();
+        // 仅当字段仍指向本窗口时才处理，避免旧窗口的延迟 Closed 事件破坏新窗口状态。
+        win.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_window, win))
+            {
+                _window = null;
+                _visible = false;
+            }
+        };
+        _window = win;
+        _visible = true;
+        _lastCompactMode = _settings.Data.WidgetCompactMode;
+        win.Activate();
+    }
+
+    private void HideWidget()
+    {
+        if (_window is not null && _visible)
         {
             _window.AppWindow.Hide();
             _visible = false;
         }
     }
 
+    private void EnsureTimer()
+    {
+        _timer ??= new Timer(OnTick, null, 0, 1000);
+    }
+
+    private void StopTimer()
+    {
+        _timer?.Dispose();
+        _timer = null;
+    }
+
     private void OnTick(object? state)
     {
-        if (!_settings.Data.DesktopWidgetEnabled) return;
+        if (_disposed || !_settings.Data.DesktopWidgetEnabled) return;
         App.UiDispatcher.TryEnqueue(Refresh);
     }
 
@@ -107,9 +155,9 @@ public class DesktopWidgetService : IDisposable
     /// <summary>主窗口关闭后仍保持小组件（托盘运行时小组件常驻）。</summary>
     public void Dispose()
     {
+        _disposed = true;
         _settings.SettingsChanged -= OnSettingsChanged;
-        _timer?.Dispose();
-        _timer = null;
+        StopTimer();
 
         App.UiDispatcher.TryEnqueue(() =>
         {

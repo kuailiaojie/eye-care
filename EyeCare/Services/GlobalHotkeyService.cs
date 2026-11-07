@@ -104,14 +104,22 @@ public class GlobalHotkeyService : IDisposable
 
     private IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
-        if (msg == WM_HOTKEY)
+        try
         {
-            int id = wParam.ToInt32();
-            App.UiDispatcher.TryEnqueue(() => HandleHotkey(id));
+            if (msg == WM_HOTKEY)
+            {
+                int id = wParam.ToInt32();
+                App.UiDispatcher?.TryEnqueue(() => HandleHotkey(id));
+                return IntPtr.Zero;
+            }
+
+            return NativeMethods.DefWindowProc(hWnd, msg, wParam, lParam);
+        }
+        catch
+        {
+            // 异常穿越原生 WndProc 边界会导致进程直接崩溃，静默忽略。
             return IntPtr.Zero;
         }
-
-        return NativeMethods.DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
     private void HandleHotkey(int id)
@@ -123,7 +131,7 @@ public class GlobalHotkeyService : IDisposable
                 s.BlueLightEnabled = !s.BlueLightEnabled;
                 _settings.Save();
                 App.ApplyFilters();
-                App.TrayIcon.Notify("蓝光过滤", s.BlueLightEnabled ? "已开启蓝光过滤" : "已关闭蓝光过滤");
+                App.TrayIcon?.Notify("蓝光过滤", s.BlueLightEnabled ? "已开启蓝光过滤" : "已关闭蓝光过滤");
                 break;
 
             case HOTKEY_ID_BRIGHTNESS_UP:
@@ -131,7 +139,7 @@ public class GlobalHotkeyService : IDisposable
                 s.BrightnessEnabled = s.Brightness < 0.999;
                 _settings.Save();
                 App.ApplyFilters();
-                App.TrayIcon.Notify("屏幕亮度", $"已调节至 {(int)(s.Brightness * 100)}%");
+                App.TrayIcon?.Notify("屏幕亮度", $"已调节至 {(int)(s.Brightness * 100)}%");
                 break;
 
             case HOTKEY_ID_BRIGHTNESS_DOWN:
@@ -139,7 +147,7 @@ public class GlobalHotkeyService : IDisposable
                 s.BrightnessEnabled = true;
                 _settings.Save();
                 App.ApplyFilters();
-                App.TrayIcon.Notify("屏幕亮度", $"已调节至 {(int)(s.Brightness * 100)}%");
+                App.TrayIcon?.Notify("屏幕亮度", $"已调节至 {(int)(s.Brightness * 100)}%");
                 break;
 
             case HOTKEY_ID_START_BREAK:

@@ -33,6 +33,7 @@ public sealed partial class BreakCompanionWindow : Window
             presenter.SetBorderAndTitleBar(false, false);
         }
 
+        appWindow.IsShownInSwitchers = false;
         appWindow.MoveAndResize(bounds);
     }
 }

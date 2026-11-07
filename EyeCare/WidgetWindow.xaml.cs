@@ -38,6 +38,7 @@ public sealed partial class WidgetWindow : Window
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
     private int _pendingX, _pendingY;
     private int _lastWidthPhys = -1, _lastHeightPhys = -1;
+    private bool _suppressPositionSave;
 
     public WidgetWindow()
     {
@@ -58,15 +59,15 @@ public sealed partial class WidgetWindow : Window
 
             // 按当前 DPI 换算初始尺寸（AppWindow 坐标均为物理像素），Loaded 后再按内容精调
             var hwnd = WindowNative.GetWindowHandle(this);
-            double scale = GetDpiForWindow(hwnd) / 96.0;
+            double scale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
             AppWindow.Resize(new SizeInt32(
                 (int)Math.Round(ContentWidthDip * scale),
                 (int)Math.Round(140 * scale)));
             AppWindow.IsShownInSwitchers = false;
 
             // 工具窗口样式：不显示在任务栏
-            long exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, (IntPtr)(exStyle | WS_EX_TOOLWINDOW));
+            nint exStyle = NativeMethods.GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+            NativeMethods.SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle | (nint)WS_EX_TOOLWINDOW);
             App.Trace("WidgetWindow: window styled");
 
             // 拖动结束后（防抖）持久化位置
@@ -214,7 +215,16 @@ public sealed partial class WidgetWindow : Window
             var hMon = NativeMethods.MonitorFromPoint(new NativeMethods.POINT(s.WidgetX, s.WidgetY), NativeMethods.MONITOR_DEFAULTTONULL);
             if (hMon != IntPtr.Zero)
             {
-                AppWindow.Move(new PointInt32(s.WidgetX, s.WidgetY));
+                _suppressPositionSave = true;
+                try
+                {
+                    AppWindow.Move(new PointInt32(s.WidgetX, s.WidgetY));
+                    FitToContent();
+                }
+                finally
+                {
+                    _suppressPositionSave = false;
+                }
                 return;
             }
             // 若落在屏幕外（如副屏已被拔除），自动回退到主屏右上角
@@ -229,22 +239,39 @@ public sealed partial class WidgetWindow : Window
     {
         var hwnd = WindowNative.GetWindowHandle(this);
         var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-        var area = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        var area = DisplayArea.Primary ?? DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
         if (area is null) return;
 
         var wa = area.WorkArea;
-        double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
-        int margin = (int)Math.Round(24 * scale); // 24 逻辑像素边距 → 物理像素
-        int x = wa.X + wa.Width - AppWindow.Size.Width - margin;
-        int y = wa.Y + margin;
-        AppWindow.Move(new PointInt32(Math.Max(wa.X, x), Math.Max(wa.Y, y)));
 
-        App.Settings.Data.WidgetPositionCustomized = false;
-        App.Settings.Save();
+        _suppressPositionSave = true;
+        try
+        {
+            _saveTimer?.Stop();
+
+            // 若当前处于不同 DPI 的副屏上，先移入主屏工作区内部以刷新 DPI 缩放并重新测量准确物理尺寸
+            AppWindow.Move(new PointInt32(wa.X, wa.Y));
+            FitToContent();
+
+            double scale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+            if (scale <= 0) scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+            int margin = (int)Math.Round(24 * scale); // 24 逻辑像素边距 → 物理像素
+            int x = wa.X + wa.Width - AppWindow.Size.Width - margin;
+            int y = wa.Y + margin;
+
+            AppWindow.Move(new PointInt32(Math.Max(wa.X, x), Math.Max(wa.Y, y)));
+            App.Settings.Data.WidgetPositionCustomized = false;
+            App.Settings.Save();
+        }
+        finally
+        {
+            _suppressPositionSave = false;
+        }
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
+        if (_suppressPositionSave) return;
         if (!args.DidPositionChange) return;
         var pos = sender.Position;
         _pendingX = pos.X;
@@ -328,6 +355,19 @@ public sealed partial class WidgetWindow : Window
         ApplyCompactMode();
     }
 
+    /// <summary>设置变更后刷新窗口外观（如从设置页切换紧凑模式）。</summary>
+    internal void RefreshLayout()
+    {
+        try
+        {
+            ApplyCompactMode();
+        }
+        catch (Exception ex)
+        {
+            App.LogCrash("WidgetWindow.RefreshLayout", ex);
+        }
+    }
+
     private void ApplyCompactMode()
     {
         bool compact = App.Settings.Data.WidgetCompactMode;
@@ -348,16 +388,7 @@ public sealed partial class WidgetWindow : Window
 
     /// <summary>解析 Fluent 语义主题画刷；缺失或异常时回退内置颜色。</summary>
     private static Brush ResolveThemeBrush(string key, byte r, byte g, byte b)
-    {
-        try
-        {
-            if (Application.Current?.Resources is { } resources &&
-                resources.TryGetValue(key, out object? value) && value is Brush brush)
-                return brush;
-        }
-        catch { /* 资源解析失败不影响运行 */ }
-        return new SolidColorBrush(Windows.UI.Color.FromArgb(255, r, g, b));
-    }
+        => Helpers.ThemeResources.ResolveBrush(key, r, g, b);
 
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
@@ -365,15 +396,6 @@ public sealed partial class WidgetWindow : Window
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetWindowLongPtrW")]
-    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowLongPtrW")]
-    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hInsertAfter, int x, int y, int cx, int cy, uint flags);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hWnd);
 }

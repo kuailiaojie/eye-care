@@ -90,8 +90,12 @@ public sealed partial class OverviewPage : Page
     private static void HighlightButton(Button btn, bool active)
     {
         if (btn == null) return;
-        btn.Style = (Style)Application.Current.Resources[active ? "AccentButtonStyle" : "DefaultButtonStyle"];
+        var style = Helpers.ThemeResources.ResolveStyle(active ? "AccentButtonStyle" : "DefaultButtonStyle");
+        if (style is not null) btn.Style = style;
     }
+
+    private static Microsoft.UI.Xaml.Media.Brush ResolveThemeBrush(string key, byte r, byte g, byte b)
+        => Helpers.ThemeResources.ResolveBrush(key, r, g, b);
 
     private void ProfileOffice_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Office);
     private void ProfileReading_Click(object sender, RoutedEventArgs e) => SwitchProfile(SceneProfile.Reading);
@@ -164,6 +168,11 @@ public sealed partial class OverviewPage : Page
             if (d.ScreenMinutes > maxMin) maxMin = d.ScreenMinutes;
         }
 
+        var secTextBrush = ResolveThemeBrush("TextFillColorSecondaryBrush", 0x9E, 0x9E, 0x9E);
+        var priTextBrush = ResolveThemeBrush("TextFillColorPrimaryBrush", 0xFF, 0xFF, 0xFF);
+        var accentBrush = ResolveThemeBrush("AccentFillColorDefaultBrush", 0x00, 0x78, 0xD4);
+        var layerBrush = ResolveThemeBrush("LayerFillColorDefaultBrush", 0x44, 0x44, 0x44);
+
         for (int i = 0; i < days.Count; i++)
         {
             ChartContainer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -181,7 +190,7 @@ public sealed partial class OverviewPage : Page
             {
                 Text = record.ScreenMinutes > 0 ? $"{record.ScreenMinutes}" : "-",
                 FontSize = 10,
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Foreground = secTextBrush,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
@@ -193,9 +202,7 @@ public sealed partial class OverviewPage : Page
                 Height = barHeight,
                 CornerRadius = new CornerRadius(4),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Background = record.ScreenMinutes > 0
-                    ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
-                    : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["LayerFillColorDefaultBrush"]
+                Background = record.ScreenMinutes > 0 ? accentBrush : layerBrush
             };
 
             string dayLabel = "今天";
@@ -212,7 +219,7 @@ public sealed partial class OverviewPage : Page
                 Text = dayLabel,
                 FontSize = 11,
                 FontWeight = i == 6 ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[i == 6 ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"],
+                Foreground = i == 6 ? priTextBrush : secTextBrush,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
